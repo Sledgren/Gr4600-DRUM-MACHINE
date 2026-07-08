@@ -1,0 +1,39 @@
+{
+  "name": "GR4600 Gambit Kit",
+  "tracks": {
+    "kick": [
+      "assets/drums/kick-01.wav",
+      "assets/drums/kick-02.wav",
+      "assets/drums/kick-03.wav"
+    ],
+    "snare": [
+      "assets/drums/snare-main.wav",
+      "assets/drums/snare-01.wav",
+      "assets/drums/snare-02.wav"
+    ],
+    "hat": [
+      "assets/drums/hat-01.wav",
+      "assets/drums/hat-02.wav"
+    ],
+    "open": [
+      "assets/drums/open-01.wav",
+      "assets/drums/open-02.wav"
+    ],
+    "clap": [
+      "assets/drums/clap-01.wav",
+      "assets/drums/clap-02.wav"
+    ],
+    "perc": [
+      "assets/drums/sledgrens-cowbell.wav"
+    ],
+    "bass": [
+      "assets/drums/bass-01.wav",
+      "assets/drums/bass-02.wav",
+      "assets/drums/bass-03.wav"
+    ]
+  },
+  "loops": [
+    "assets/loops/loop-140-ultra.mp3",
+    "assets/loops/loop-139-whats-hannin.mp3"
+  ]
+}

@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GR4600 Drum Machine</title>
+  <meta name="description" content="GR4600 is a browser drum machine and sampler by Glitchrealm.">
+  <link rel="stylesheet" href="style.css?v=1028">
+</head>
+<body>
+  <main class="machine" aria-label="GR4600 drum machine">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-title">GR4600</div>
+        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.2.8</span></div>
+      </div>
+      <img class="brand-logo" src="assets/glitchrealm-logo.webp" alt="Glitchrealm logo">
+      <div class="actions">
+        <button id="newProjectBtn" type="button">+ NEW</button>
+        <button id="saveBtn" type="button">SAVE</button>
+        <button id="loadBtn" type="button">LOAD</button>
+        <button id="exportBtn" type="button">EXPORT</button>
+        <button id="helpBtn" type="button">HELP</button>
+      </div>
+    </header>
+
+    <section class="panel transport-panel">
+      <div class="screen">
+        <div id="screenTempo" class="screen-main">BPM: 140</div>
+        <div id="screenState">STOP</div>
+        <div id="screenInfo">SYSTEM READY · MASTER WAV</div>
+        <div id="screenStep">STEP 1 / 16</div>
+      </div>
+
+      <div class="hardware-controls">
+        <div class="control-cluster tempo-box">
+          <label for="tempo">TEMPO</label>
+          <div id="tempoKnob" class="knob-mount"></div>
+          <input id="tempo" type="range" min="60" max="190" value="140">
+          <input id="tempoNumber" type="number" min="60" max="190" value="140">
+        </div>
+
+        <div class="control-cluster swing-box">
+          <label for="swing">SWING</label>
+          <div id="swingKnob" class="knob-mount"></div>
+          <input id="swing" type="range" min="50" max="75" value="58">
+          <span id="swingReadout">58%</span>
+        </div>
+
+        <div class="control-cluster master-box">
+          <label for="master">MASTER</label>
+          <div id="masterKnob" class="knob-mount"></div>
+          <input id="master" type="range" min="0" max="1" step="0.01" value="0.88">
+          <span id="masterReadout">88</span>
+        </div>
+
+        <div class="control-cluster pitch-box">
+          <label for="masterPitch">MASTER TUNE</label>
+          <div id="masterPitchKnob" class="knob-mount"></div>
+          <input id="masterPitch" type="range" min="-12" max="12" step="1" value="0">
+          <span id="masterPitchReadout">0 ST</span>
+        </div>
+      </div>
+
+      <div class="transport">
+        <button id="recordBtn" type="button" class="rec">REC</button>
+        <button id="stopBtn" type="button">■</button>
+        <button id="playBtn" type="button">▶</button>
+      </div>
+    </section>
+
+    <section class="panel mixer-panel" aria-label="mixer and track controls">
+      <div id="tracks" class="tracks"></div>
+    </section>
+
+    <section class="panel mix-fx-panel" aria-label="mixer effects">
+      <div class="mix-fx-head">
+        <div>
+          <h2>MIXER / INSERT FX</h2>
+          <p id="mixFxStatus">Select a track or master bus, then enable insert effects</p>
+        </div>
+        <div class="mix-fx-controls">
+          <select id="fxTarget" aria-label="effect target">
+            <option value="master">MASTER</option>
+            <option value="kick">PAD 1 KICK</option>
+            <option value="snare">PAD 2 SNARE</option>
+            <option value="hat">PAD 3 HAT</option>
+            <option value="open">PAD 4 OPEN</option>
+            <option value="clap">PAD 5 CLAP</option>
+            <option value="perc">PAD 6 PERC</option>
+            <option value="sample">PAD 7 SAMPLE</option>
+            <option value="bass">PAD 8 BASS</option>
+          </select>
+          <button class="mix-btn" data-mix-fx="eq" type="button">EQ</button>
+          <button class="mix-btn" data-mix-fx="chorus" type="button">CHORUS</button>
+          <button class="mix-btn" data-mix-fx="reverb" type="button">REVERB</button>
+          <button class="mix-btn" data-mix-fx="phaser" type="button">PHASER</button>
+          <button class="mix-btn" data-mix-fx="softClip" type="button">LIMITER</button>
+        </div>
+      </div>
+      <div class="mix-mini-controls" aria-label="mixer effect details">
+        <label>LOW EQ<input id="eqLow" type="range" min="-6" max="6" step="0.5" value="2"></label>
+        <label>HIGH EQ<input id="eqHigh" type="range" min="-8" max="4" step="0.5" value="-1.5"></label>
+        <label>CHORUS WET<input id="chorusWet" type="range" min="0" max="0.7" step="0.01" value="0.18"></label>
+        <label>REVERB WET<input id="reverbWet" type="range" min="0" max="0.8" step="0.01" value="0.2"></label>
+        <label>DRIVE<input id="clipDrive" type="range" min="1" max="5" step="0.1" value="2.4"></label>
+      </div>
+    </section>
+
+    <section class="panel fx-panel" aria-label="performance effects">
+      <div class="fx-head">
+        <div>
+          <h2>PERFORMANCE FX</h2>
+          <p>Real-time rhythmic effects for the selected track</p>
+        </div>
+        <div class="fx-buttons">
+          <button id="fxCollapseBtn" class="fx-collapse" type="button" aria-expanded="true">FX PANEL</button>
+          <button class="fx-btn" data-fx="slice" type="button">SLICE</button>
+          <button class="fx-btn" data-fx="stutter" type="button">STUTTER</button>
+          <button class="fx-btn" data-fx="repeat" type="button">REPEAT</button>
+          <button class="fx-btn" data-fx="glitch" type="button">GATE</button>
+          <label class="slice-menu">
+            TIMING
+            <select id="sliceTiming" aria-label="slice timing">
+              <option value="1/2">1/2</option>
+              <option value="1/3">1/3</option>
+              <option value="1/4" selected>1/4</option>
+              <option value="1/5">1/5</option>
+              <option value="1/8">1/8</option>
+              <option value="1/16">1/16</option>
+              <option value="1/32">1/32</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="fx-strip">
+        <div class="control-cluster fx-control">
+          <label for="fxDepth">DEPTH</label>
+          <div id="fxDepthKnob" class="knob-mount"></div>
+          <input id="fxDepth" type="range" min="0" max="1" step="0.01" value="0.55">
+          <span id="fxDepthReadout">55</span>
+        </div>
+        <div class="fx-screen" aria-label="fx performance display">
+          <canvas id="fxDisplay" width="340" height="96"></canvas>
+        </div>
+        <div class="fx-note" id="fxReadout">FX OFF</div>
+      </div>
+    </section>
+
+    <section class="panel sampler-panel" aria-label="sampler">
+      <div class="sampler-head">
+        <div>
+          <h2>SAMPLER</h2>
+          <p id="sampleName">No sample loaded</p>
+        </div>
+        <div class="sampler-actions">
+          <div class="control-cluster sample-pitch-box">
+            <label for="samplePitch">TUNE</label>
+            <div id="samplePitchKnob" class="knob-mount"></div>
+            <input id="samplePitch" type="range" min="-12" max="12" step="1" value="0">
+            <span id="samplePitchReadout">0 ST</span>
+          </div>
+          <button id="sampleRunBtn" type="button" class="on">MONITOR</button>
+          <button id="sampleStretchBtn" type="button">STRETCH</button>
+          <label class="cut-switch" title="Chops stop the previous chop by default">
+            CUT SELF
+            <input id="sampleCutSelf" type="checkbox" checked>
+          </label>
+          <button id="sampleClearBtn" type="button">CLEAR</button>
+          <label class="file-button">
+            LOAD SAMPLE
+            <input id="sampleInput" type="file" accept="audio/*">
+          </label>
+        </div>
+      </div>
+      <div class="sampler-edit">
+        <label class="stretch-switch">
+          <span>TIME STRETCH</span>
+          <input id="sampleTimeStretch" type="checkbox" checked>
+          <i></i>
+        </label>
+        <div class="sample-readers">
+          <span id="sampleKeyReadout">KEY --</span>
+          <span id="sampleTempoReadout">TEMPO --</span>
+        </div>
+      </div>
+      <canvas id="wave" width="960" height="130" aria-label="sample waveform"></canvas>
+      <div class="sample-slice-controls">
+        <label>START<input id="sampleStart" type="range" min="0" max="99" step="1" value="0"><span id="sampleStartReadout">0%</span></label>
+        <label>END<input id="sampleEnd" type="range" min="1" max="100" step="1" value="100"><span id="sampleEndReadout">100%</span></label>
+        <label>LEVEL<input id="sampleLevel" type="range" min="0" max="1" step="0.01" value="0.82"><span id="sampleLevelReadout">82</span></label>
+      </div>
+    </section>
+
+    <section class="panel template-panel" aria-label="template memory">
+      <div class="template-head">
+        <div>
+          <h2>TEMPLATES</h2>
+          <p id="templateStatus">Save a machine setup and recall it later</p>
+        </div>
+        <div class="template-actions">
+          <input id="templateName" type="text" value="GR4600 TEMPLATE" maxlength="28" aria-label="template name">
+          <button id="templateSaveBtn" type="button">SAVE TEMPLATE</button>
+          <select id="templateSelect" aria-label="saved templates"></select>
+          <button id="templateLoadBtn" type="button">LOAD</button>
+          <button id="templateDeleteBtn" type="button">DELETE</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel sequencer-panel" aria-label="step sequencer">
+      <div class="seq-head">
+        <div class="seq-title">PATTERN SEQUENCER</div>
+        <div class="seq-tools">
+          <div class="length-group" aria-label="sequence length">
+            <button class="length-btn on" data-length="16" type="button">16</button>
+            <button class="length-btn" data-length="32" type="button">32</button>
+            <button class="length-btn" data-length="64" type="button">64</button>
+            <button class="length-btn" data-length="128" type="button">128</button>
+          </div>
+          <button id="patternBuilderBtn" type="button">PATTERN BUILDER</button>
+          <button id="copyTrackBtn" type="button">COPY TRACK</button>
+          <button id="pasteTrackBtn" type="button">PASTE TRACK</button>
+          <button id="clearBtn" type="button">CLEAR PATTERN</button>
+        </div>
+      </div>
+      <div id="grid" class="grid"></div>
+    </section>
+
+    <section class="pads" aria-label="performance pads">
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:58%"></i></span></div><button data-pad="kick" data-chop="0" type="button"><span class="pad-slot"><i></i></span><span>PAD 1</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:64%"></i></span></div><button data-pad="snare" data-chop="1" type="button"><span class="pad-slot"><i></i></span><span>PAD 2</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:52%"></i></span></div><button data-pad="hat" data-chop="2" type="button"><span class="pad-slot"><i></i></span><span>PAD 3</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:46%"></i></span></div><button data-pad="open" data-chop="3" type="button"><span class="pad-slot"><i></i></span><span>PAD 4</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:60%"></i></span></div><button data-pad="clap" data-chop="4" type="button"><span class="pad-slot"><i></i></span><span>PAD 5</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:56%"></i></span></div><button data-pad="perc" data-chop="5" type="button"><span class="pad-slot"><i></i></span><span>PAD 6</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:62%"></i></span></div><button data-pad="sample" data-chop="6" type="button"><span class="pad-slot"><i></i></span><span>PAD 7</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:66%"></i></span></div><button data-pad="bass" data-chop="7" type="button"><span class="pad-slot"><i></i></span><span>PAD 8</span></button></div>
+    </section>
+  </main>
+
+  <dialog id="exportDialog" class="export-dialog">
+    <form method="dialog">
+      <h2>EXPORT AUDIO</h2>
+      <label class="choice">
+        <input type="radio" name="format" value="wav" checked>
+        <span>MASTER WAV</span>
+      </label>
+      <label class="choice">
+        <input type="radio" name="format" value="mp3">
+        <span>MASTER MP3</span>
+      </label>
+      <label class="choice">
+        <input id="stemsToggle" type="checkbox">
+        <span>EXPORT TRACK STEMS</span>
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel" type="submit">CANCEL</button>
+        <button id="confirmExport" value="export" type="submit">EXPORT</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="patternDialog" class="pattern-dialog">
+    <form method="dialog">
+      <h2>GR4600 PATTERN BUILDER</h2>
+      <p class="dialog-note">Save full patterns into hidden slots, recall them, duplicate them, or append one after the current groove for fast song building.</p>
+      <label class="choice">
+        <span>PATTERN SLOT</span>
+        <select id="patternSlot">
+          <option value="1">SLOT 1</option>
+          <option value="2">SLOT 2</option>
+          <option value="3">SLOT 3</option>
+          <option value="4">SLOT 4</option>
+          <option value="5">SLOT 5</option>
+          <option value="6">SLOT 6</option>
+          <option value="7">SLOT 7</option>
+          <option value="8">SLOT 8</option>
+        </select>
+      </label>
+      <div id="patternStatus" class="pattern-status">NO SLOT LOADED</div>
+      <div class="dialog-actions pattern-actions">
+        <button id="patternSaveBtn" value="stay" type="button">SAVE SLOT</button>
+        <button id="patternLoadBtn" value="stay" type="button">LOAD SLOT</button>
+        <button id="patternDuplicateBtn" value="stay" type="button">DUPLICATE</button>
+        <button id="patternAppendBtn" value="stay" type="button">APPEND</button>
+        <button value="close" type="submit">CLOSE</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="helpDialog" class="help-dialog">
+    <form method="dialog">
+      <h2>GR4600 HELP</h2>
+      <div class="help-grid">
+        <section>
+          <h3>Quick Start</h3>
+          <div class="help-flow"><span>Pad</span><b></b><span>Track</span><b></b><span>Pattern</span><b></b><span>Master</span></div>
+          <p>Press PLAY or Space to start and stop. Click a track name or pad to select it, then click steps to program the selected sound. Click PAD 1-8 to audition sounds live for a jam session.</p>
+        </section>
+        <section>
+          <h3>Pattern Editing</h3>
+          <div class="help-flow"><span>Right-click Step</span><b></b><span>Fill Every 2/4/6/8</span><b></b><span>Copy Track</span></div>
+          <p>Use 16, 32, 64, or 128 steps. Right-click the sequencer to add fast fills and rolls. Select a track, then use COPY TRACK and PASTE TRACK to duplicate a groove to another lane.</p>
+        </section>
+        <section>
+          <h3>Keyboard And Right Click</h3>
+          <div class="help-flow"><span>Space</span><b></b><span>Play/Stop</span><b></b><span>1-8</span><b></b><span>Trigger Pads</span></div>
+          <p>Space starts and stops transport. Number keys 1-8 trigger pads. When the hidden sound browser is open, A/W/S/E/D/F/T/G/Y/H/U/J/K plays the selected sound across pitches. Right-click pads or tracks for Mute, Sound Browser, Browse Sound File, Mixer, Copy, Paste, Undo, and Redo. Undo/Redo keeps the last 100 edits. Right-click steps for step-only fills and deletes.</p>
+        </section>
+        <section>
+          <h3>Sample Tune And Time Stretch</h3>
+          <div class="help-flow"><span>Load Sample</span><b></b><span>Tune</span><b></b><span>Time Stretch</span></div>
+          <p>SAMPLE TUNE changes pitch. With TIME STRETCH on, the sampler preserves timing while changing pitch. With it off, playback behaves like classic hardware: pitch and speed move together.</p>
+        </section>
+        <section>
+          <h3>Mixer Inserts</h3>
+          <div class="help-flow"><span>Track</span><b></b><span>EQ</span><b></b><span>Chorus/Reverb</span><b></b><span>Limiter</span></div>
+          <p>Select MASTER or a track in MIXER / INSERT FX. Enable EQ, Chorus, Reverb, Phaser, or Limiter, then use LOW EQ, HIGH EQ, WET, and DRIVE to shape the sound.</p>
+        </section>
+        <section>
+          <h3>Sound Kits</h3>
+          <div class="help-flow"><span>Hover</span><b></b><span>Audition</span><b></b><span>Click</span><b></b><span>Assign</span></div>
+          <p>Use SOUND KITS to browse built-in drums. Hover a sound to audition it. Click a sound to assign it to the currently selected track without leaving the beat-making flow.</p>
+        </section>
+        <section>
+          <h3>Troubleshooting</h3>
+          <div class="help-flow"><span>No Sound?</span><b></b><span>Click Page</span><b></b><span>Press Play</span><b></b><span>Check Assets</span></div>
+          <p>If sound does not play, click the page once, press PLAY, and check browser audio permission. If a sample drifts, turn TIME STRETCH on. If GitHub preview is silent, make sure the assets folder uploaded with the HTML.</p>
+        </section>
+      </div>
+      <details class="about-note">
+        <summary>About</summary>
+        <p>GR4600 is a Glitchrealm drum machine focused on fast pad loading, step sequencing, sampler playback, and browser export.</p>
+        <small>Created by Jermaine Woods of Glitchrealm.</small>
+      </details>
+      <div class="dialog-actions">
+        <button value="close" type="submit">CLOSE</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="stepMenu" class="step-menu" hidden>
+    <button data-fill="2" type="button">ADD EVERY 2</button>
+    <button data-fill="4" type="button">ADD EVERY 4</button>
+    <button data-fill="6" type="button">ADD EVERY 6</button>
+    <button data-fill="8" type="button">ADD EVERY 8</button>
+    <button data-fill="delete-step" type="button">DELETE STEP</button>
+    <button data-fill="copy" type="button">COPY TRACK</button>
+    <button data-fill="paste" type="button">PASTE TRACK</button>
+    <button data-fill="clear" type="button">CLEAR TRACK</button>
+  </div>
+
+  <div id="unitMenu" class="step-menu unit-menu" hidden>
+    <button data-unit-action="mute" type="button">MUTE / UNMUTE</button>
+    <button data-unit-action="browser" type="button">OPEN SOUND BROWSER</button>
+    <button data-unit-action="browse-file" type="button">BROWSE SOUND FILE</button>
+    <button data-unit-action="mixer" type="button">OPEN MIXER</button>
+    <button data-unit-action="copy" type="button">COPY TRACK</button>
+    <button data-unit-action="paste" type="button">PASTE TRACK</button>
+    <button data-unit-action="undo" type="button">UNDO</button>
+    <button data-unit-action="redo" type="button">REDO</button>
+  </div>
+
+  <div id="soundBrowser" class="sound-browser" hidden>
+    <div class="sound-browser-head">
+      <div>
+        <strong id="soundBrowserTitle">PAD SOUND</strong>
+        <span id="soundBrowserKey">KEY C · ROOT C3</span>
+      </div>
+      <button id="soundBrowserClose" type="button">CLOSE</button>
+    </div>
+    <canvas id="soundPianoRoll" width="520" height="86" aria-label="sound piano roll"></canvas>
+    <div id="soundKeys" class="sound-keys" aria-label="pitch preview keyboard"></div>
+    <div id="soundEq" class="sound-eq" aria-label="hidden channel eq">
+      <label>HPF<input data-eq-param="hp" type="range" min="20" max="600" step="5" value="20"><span>20</span></label>
+      <label>LOW<input data-eq-param="low" type="range" min="-12" max="12" step="0.5" value="0"><span>0</span></label>
+      <label>LOW MID<input data-eq-param="lowMid" type="range" min="-12" max="12" step="0.5" value="0"><span>0</span></label>
+      <label>HIGH MID<input data-eq-param="highMid" type="range" min="-12" max="12" step="0.5" value="0"><span>0</span></label>
+      <label>HIGH<input data-eq-param="high" type="range" min="-12" max="12" step="0.5" value="0"><span>0</span></label>
+      <label>LPF<input data-eq-param="lp" type="range" min="1800" max="20000" step="100" value="20000"><span>20000</span></label>
+    </div>
+    <div class="mini-fx-rack" aria-label="hidden performance mini plugins">
+      <div class="mini-vst">
+        <strong>SLICE</strong>
+        <select data-mini-fx="sliceTiming">
+          <option value="1/2">1/2</option><option value="1/3">1/3</option><option value="1/4">1/4</option>
+          <option value="1/8">1/8</option><option value="1/16">1/16</option><option value="1/32">1/32</option>
+        </select>
+        <button data-mini-toggle="slice" type="button">ON</button>
+      </div>
+      <div class="mini-vst">
+        <strong>STUTTER</strong>
+        <button data-stutter-template="tight" type="button">TIGHT</button>
+        <button data-stutter-template="triplet" type="button">TRIP</button>
+        <button data-mini-toggle="stutter" type="button">ON</button>
+      </div>
+      <div class="mini-vst">
+        <strong>REPEAT</strong>
+        <button data-repeat-template="two" type="button">2X</button>
+        <button data-repeat-template="four" type="button">4X</button>
+        <button data-mini-toggle="repeat" type="button">ON</button>
+      </div>
+      <div class="mini-vst">
+        <strong>GLITCH</strong>
+        <button data-glitch-template="gate" type="button">GATE</button>
+        <button data-glitch-template="crush" type="button">CRUSH</button>
+        <button data-mini-toggle="glitch" type="button">ON</button>
+      </div>
+    </div>
+    <div id="soundList" class="sound-list" aria-label="sound browser list"></div>
+  </div>
+
+  <script type="module" src="app.js?v=1028"></script>
+</body>
+</html>
