@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GR4600 Drum Machine</title>
   <meta name="description" content="GR4600 is a browser drum machine and sampler by Glitchrealm.">
-  <link rel="stylesheet" href="style.css?v=1039">
+  <link rel="stylesheet" href="style.css?v=1040">
 </head>
 <body>
   <main class="machine" aria-label="GR4600 drum machine">
     <header class="topbar">
       <div class="brand">
         <div class="brand-title">GR4600</div>
-        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.3.9</span></div>
+        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.4.0</span></div>
       </div>
       <img class="brand-logo" src="assets/glitchrealm-logo.webp" alt="Glitchrealm logo">
       <div class="actions">
@@ -73,12 +73,16 @@
         </div>
       </div>
 
-      <div class="transport">
-        <button id="recordBtn" type="button" class="rec">REC</button>
-        <button id="undoBtn" type="button" class="mini-transport">UNDO</button>
-        <button id="redoBtn" type="button" class="mini-transport">REDO</button>
-        <button id="stopBtn" type="button">■</button>
-        <button id="playBtn" type="button">▶</button>
+      <div class="transport-stack" aria-label="transport controls">
+        <div class="edit-transport" aria-label="undo and redo">
+          <button id="undoBtn" type="button" class="mini-transport">UNDO</button>
+          <button id="redoBtn" type="button" class="mini-transport">REDO</button>
+        </div>
+        <div class="transport">
+          <button id="recordBtn" type="button" class="rec">REC</button>
+          <button id="stopBtn" type="button">■</button>
+          <button id="playBtn" type="button">▶</button>
+        </div>
       </div>
     </section>
 
@@ -518,6 +522,6 @@
     <div id="soundList" class="sound-list" aria-label="sound browser list"></div>
   </div>
 
-  <script type="module" src="app.js?v=1039"></script>
+  <script type="module" src="app.js?v=1040"></script>
 </body>
 </html>

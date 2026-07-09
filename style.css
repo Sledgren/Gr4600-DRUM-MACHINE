@@ -528,14 +528,27 @@ button.on {
   letter-spacing: 0.04em;
 }
 
+.transport-stack {
+  align-self: end;
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.edit-transport {
+  display: flex;
+  gap: 6px;
+  padding-right: 1px;
+}
+
 .transport {
   display: flex;
   gap: 7px;
-  align-self: end;
   align-items: end;
 }
 
-.transport button {
+.transport button,
+.edit-transport button {
   width: 42px;
   height: 40px;
   min-height: 40px;
@@ -565,7 +578,7 @@ button.on {
     linear-gradient(180deg, #ff483d, var(--red) 58%, #891911);
 }
 
-.transport .mini-transport {
+.edit-transport .mini-transport {
   width: 43px;
   height: 24px;
   min-height: 24px;
@@ -585,12 +598,13 @@ button.on {
     0 4px 7px rgba(0,0,0,0.32);
 }
 
-.transport .mini-transport:active {
+.edit-transport .mini-transport:active {
   transform: translateY(3px);
 }
 
 .transport button:active,
-.transport button.on {
+.transport button.on,
+.edit-transport button:active {
   transform: translateY(4px);
   box-shadow:
     inset 0 4px 8px rgba(0,0,0,0.5),
