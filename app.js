@@ -24,8 +24,17 @@ const model = {
   step: 0,
   length: 16,
   pattern: Object.fromEntries(TRACKS.map(t => [t.id, new Array(MAX_STEPS).fill(false)])),
-  master: 0.88,
-  volumes: Object.fromEntries(TRACKS.map(t => [t.id, t.id === "snare" ? 1 : t.id === "hat" ? 0.42 : 0.82])),
+  master: 0.82,
+  volumes: Object.fromEntries(TRACKS.map(t => [t.id, ({
+    kick: 0.68,
+    snare: 0.72,
+    hat: 0.36,
+    open: 0.42,
+    clap: 0.58,
+    perc: 0.54,
+    sample: 0.64,
+    bass: 0.62,
+  }[t.id] ?? 0.58)])),
   tunes: Object.fromEntries(TRACKS.map(t => [t.id, 0])),
   decays: Object.fromEntries(TRACKS.map(t => [t.id, t.id === "hat" ? 0.22 : 0.7])),
   tones: Object.fromEntries(TRACKS.map(t => [t.id, 0.72])),
@@ -67,8 +76,11 @@ let contextTarget = { type: "machine", trackId: "kick", step: 0 };
 let previewSource = null;
 let granularTimer = null;
 let sampleChopSources = [];
+let renderingDryStems = false;
 let kitManifest = null;
 let soundBrowserTrack = "kick";
+let fxDisplayState = { touched: "READY", target: "MASTER", detail: "DRY", accent: "#7edbff" };
+let copiedPattern = null;
 const undoStack = [];
 const redoStack = [];
 
@@ -78,6 +90,11 @@ const KEY_MAP = {
   KeyL: 2, KeyP: 3, Semicolon: 4, Quote: 5,
 };
 
+const KEY_LABELS = Object.fromEntries(Object.entries(KEY_MAP).map(([code, semi]) => [
+  semi,
+  ({ Semicolon: ";", Quote: "'" }[code] || code.replace("Key", "")),
+]));
+
 const PAD_KEY_MAP = {
   Digit1: "kick", Digit2: "snare", Digit3: "hat", Digit4: "open",
   Digit5: "clap", Digit6: "perc", Digit7: "sample", Digit8: "bass",
@@ -85,11 +102,14 @@ const PAD_KEY_MAP = {
   Numpad5: "clap", Numpad6: "perc", Numpad7: "sample", Numpad8: "bass",
 };
 
-const PIANO_KEYS = [
-  ["C2", -12, false], ["C#2", -11, true], ["D2", -10, false], ["D#2", -9, true],
-  ["E2", -8, false], ["F2", -7, false], ["F#2", -6, true], ["G2", -5, false],
-  ["G#2", -4, true], ["A2", -3, false], ["A#2", -2, true], ["B2", -1, false], ["C3", 0, false],
-];
+const PIANO_KEYS = Array.from({ length: 25 }, (_, i) => {
+  const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const semitones = i - 12;
+  const midi = 60 + semitones;
+  const note = ((midi % 12) + 12) % 12;
+  const octave = Math.floor(midi / 12) - 1;
+  return [`${names[note]}${octave}`, semitones, names[note].includes("#")];
+});
 
 const els = {
   machine: document.querySelector(".machine"),
@@ -109,8 +129,14 @@ const els = {
   screenState: document.getElementById("screenState"),
   screenInfo: document.getElementById("screenInfo"),
   screenStep: document.getElementById("screenStep"),
+  screenTempoMini: document.getElementById("screenTempoMini"),
+  screenKey: document.getElementById("screenKey"),
+  screenPattern: document.getElementById("screenPattern"),
+  screenMode: document.getElementById("screenMode"),
   tracks: document.getElementById("tracks"),
   grid: document.getElementById("grid"),
+  seqZoom: document.getElementById("seqZoom"),
+  sequencerPanel: document.querySelector(".sequencer-panel"),
   playBtn: document.getElementById("playBtn"),
   stopBtn: document.getElementById("stopBtn"),
   recordBtn: document.getElementById("recordBtn"),
@@ -124,6 +150,7 @@ const els = {
   helpDialog: document.getElementById("helpDialog"),
   confirmExport: document.getElementById("confirmExport"),
   stemsToggle: document.getElementById("stemsToggle"),
+  stemsFxToggle: document.getElementById("stemsFxToggle"),
   fxTarget: document.getElementById("fxTarget"),
   mixFxStatus: document.getElementById("mixFxStatus"),
   eqLow: document.getElementById("eqLow"),
@@ -138,7 +165,8 @@ const els = {
   sampleTimeStretch: document.getElementById("sampleTimeStretch"),
   sampleCutSelf: document.getElementById("sampleCutSelf"),
   samplePitch: document.getElementById("samplePitch"),
-  samplePitchKnob: document.getElementById("samplePitchKnob"),
+  samplePitchDown: document.getElementById("samplePitchDown"),
+  samplePitchUp: document.getElementById("samplePitchUp"),
   samplePitchReadout: document.getElementById("samplePitchReadout"),
   sampleStart: document.getElementById("sampleStart"),
   sampleEnd: document.getElementById("sampleEnd"),
@@ -148,6 +176,8 @@ const els = {
   sampleLevelReadout: document.getElementById("sampleLevelReadout"),
   sampleKeyReadout: document.getElementById("sampleKeyReadout"),
   sampleTempoReadout: document.getElementById("sampleTempoReadout"),
+  sampleShiftReadout: document.getElementById("sampleShiftReadout"),
+  sampleModeReadout: document.getElementById("sampleModeReadout"),
   sampleClearBtn: document.getElementById("sampleClearBtn"),
   templateName: document.getElementById("templateName"),
   templateStatus: document.getElementById("templateStatus"),
@@ -165,6 +195,15 @@ const els = {
   patternLoadBtn: document.getElementById("patternLoadBtn"),
   patternDuplicateBtn: document.getElementById("patternDuplicateBtn"),
   patternAppendBtn: document.getElementById("patternAppendBtn"),
+  patternChain: document.getElementById("patternChain"),
+  patternChainBtn: document.getElementById("patternChainBtn"),
+  patternOneSaveBtn: document.getElementById("patternOneSaveBtn"),
+  patternOneLoadBtn: document.getElementById("patternOneLoadBtn"),
+  patternTwoSaveBtn: document.getElementById("patternTwoSaveBtn"),
+  patternTwoLoadBtn: document.getElementById("patternTwoLoadBtn"),
+  patternOneTwoBtn: document.getElementById("patternOneTwoBtn"),
+  patternSplitBtn: document.getElementById("patternSplitBtn"),
+  patternMenu: document.getElementById("patternMenu"),
   stepMenu: document.getElementById("stepMenu"),
   unitMenu: document.getElementById("unitMenu"),
   fxPanel: document.querySelector(".fx-panel"),
@@ -218,6 +257,11 @@ function swingOffset(step) {
 
 function setInfo(text) {
   els.screenInfo.textContent = text;
+  setFxScope("SYSTEM", text, "#7edbff");
+}
+
+function setFxScope(target = "SYSTEM", detail = "READY", accent = "#7edbff") {
+  fxDisplayState = { target, detail, touched: detail, accent };
 }
 
 function remember(action = "EDIT") {
@@ -259,15 +303,21 @@ async function redoLast() {
 }
 
 function refreshScreen() {
-  els.screenTempo.textContent = `BPM: ${model.tempo}`;
+  els.screenTempo.textContent = `BPM ${model.tempo}`;
   els.screenState.textContent = model.playing ? "PLAY" : "STOP";
   els.screenStep.textContent = `STEP ${model.step + 1} / ${model.length}`;
+  if (els.screenTempoMini) els.screenTempoMini.textContent = String(model.tempo);
+  if (els.screenKey) els.screenKey.textContent = sampleBuffer ? pitchName(model.samplePitch) : "C MIN";
+  if (els.screenPattern) els.screenPattern.textContent = `${Math.floor(model.step / 16) + 1} / ${Math.max(1, model.length / 16)}`;
+  if (els.screenMode) els.screenMode.textContent = sampleBuffer && model.selectedTrack === "sample" ? "CHOP" : model.recording ? "REC" : "BEAT";
   els.swingReadout.textContent = `${model.swing}%`;
   els.masterReadout.textContent = String(Math.round(model.master * 100));
   els.masterPitchReadout.textContent = `${model.masterPitch} ST`;
-  if (els.samplePitchReadout) els.samplePitchReadout.textContent = `${model.samplePitch} ST`;
+  if (els.samplePitchReadout) els.samplePitchReadout.textContent = `${pitchName(model.samplePitch)} ${model.samplePitch >= 0 ? "+" : ""}${model.samplePitch}`;
   if (els.sampleTempoReadout) els.sampleTempoReadout.textContent = sampleBuffer ? `TEMPO ${model.tempo}` : "TEMPO --";
   if (els.sampleKeyReadout) els.sampleKeyReadout.textContent = sampleBuffer ? `KEY ${pitchName(model.samplePitch)}` : "KEY --";
+  if (els.sampleShiftReadout) els.sampleShiftReadout.textContent = `${model.samplePitch >= 0 ? "+" : ""}${model.samplePitch} ST`;
+  if (els.sampleModeReadout) els.sampleModeReadout.textContent = model.sampleStretch ? "STRETCH" : model.sampleTimeStretch ? "KEY LOCK" : "CLASSIC";
   if (masterGain) masterGain.gain.value = model.master;
   els.playBtn.classList.toggle("on", model.playing);
   els.recordBtn.classList.toggle("on", model.recording);
@@ -280,6 +330,14 @@ function refreshScreen() {
 function pitchName(semitones = 0) {
   const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
   return names[((semitones % 12) + 12) % 12];
+}
+
+function setSamplePitch(value) {
+  model.samplePitch = Math.max(-12, Math.min(12, Math.round(Number(value) || 0)));
+  if (els.samplePitch) els.samplePitch.value = String(model.samplePitch);
+  if (model.playing && model.sampleRun) startSampleLoop();
+  setFxScope("SAMPLER KEY", `${pitchName(model.samplePitch)} ${model.samplePitch >= 0 ? "+" : ""}${model.samplePitch}`, "#7edbff");
+  refreshScreen();
 }
 
 function mountKnob(host, opts) {
@@ -372,11 +430,19 @@ function buildMixer() {
       setInfo(`${track.label} PITCH ${model.tunes[track.id]} ST`);
     });
     pitchInput.addEventListener("change", () => remember(`${track.label} PITCH`));
-    wrap.querySelector(".track-name").addEventListener("click", async () => {
+    const trackNameBtn = wrap.querySelector(".track-name");
+    trackNameBtn.addEventListener("click", async () => {
       await unlockAudio();
       selectTrack(track.id);
       auditionTrackPitch(track.id, 0);
       openSoundBrowser(track.id);
+    });
+    trackNameBtn.addEventListener("contextmenu", event => {
+      event.preventDefault();
+      selectTrack(track.id);
+      contextTarget = { type: "track", trackId: track.id, step: 0 };
+      openPianoRoll(track.id);
+      showUnitMenu(event.clientX, event.clientY, "track");
     });
     wrap.querySelector(".lane-power").addEventListener("click", event => {
       event.stopPropagation();
@@ -424,7 +490,10 @@ function buildMixer() {
     els.tracks.appendChild(wrap);
     mountKnob(wrap.querySelector('.channel-main-knob'), {
       label: "LEVEL", min: 0, max: 1, value: model.volumes[track.id], unit: "",
-      onChange: value => { model.volumes[track.id] = value; }
+      onChange: value => {
+        model.volumes[track.id] = value;
+        setFxScope(`${track.label} LEVEL`, `${Math.round(value * 100)} · MIX GAIN`, track.color);
+      }
     });
   });
   syncTrackSelection();
@@ -432,7 +501,7 @@ function buildMixer() {
 
 function buildGrid() {
   els.grid.innerHTML = "";
-  els.grid.style.gridTemplateColumns = `86px repeat(${model.length}, minmax(${model.length === 128 ? 6 : 14}px, 1fr))`;
+  updateSequencerViewport();
   els.grid.appendChild(cell("TRACK", "grid-label"));
   for (let i = 0; i < model.length; i++) {
     const label = cell(String(i + 1), "grid-label step-label");
@@ -478,6 +547,26 @@ function buildGrid() {
   drawGrid();
 }
 
+function updateSequencerViewport() {
+  const width = Number(els.seqZoom?.value || (model.length >= 128 ? 52 : model.length >= 64 ? 44 : 36));
+  els.grid?.style.setProperty("--steps", String(model.length));
+  els.grid?.style.setProperty("--step-w", `${width}px`);
+}
+
+function followPlayhead() {
+  if (!model.playing || !els.grid) return;
+  const active = els.grid.querySelector(".step.playing");
+  if (!active) return;
+  const left = active.offsetLeft;
+  const right = left + active.offsetWidth;
+  const pad = 96;
+  if (left < els.grid.scrollLeft + pad) {
+    els.grid.scrollLeft = Math.max(0, left - pad);
+  } else if (right > els.grid.scrollLeft + els.grid.clientWidth - pad) {
+    els.grid.scrollLeft = right - els.grid.clientWidth + pad;
+  }
+}
+
 function cell(text, className) {
   const el = document.createElement("div");
   el.className = className;
@@ -505,8 +594,9 @@ function drawGrid() {
 
 function outputGain(ctx, when, level = 1, out = masterGain) {
   const g = ctx.createGain();
+  const shaped = Math.pow(Math.max(0, Math.min(1, level)), 1.65) * 1.22;
   g.gain.setValueAtTime(0.0001, when);
-  g.gain.exponentialRampToValueAtTime(Math.max(0.0001, level), when + 0.006);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0001, shaped), when + 0.006);
   g.connect(out);
   return g;
 }
@@ -647,11 +737,18 @@ function openSoundBrowser(trackId = model.selectedTrack) {
   els.soundBrowser.hidden = false;
 }
 
+function openPianoRoll(trackId = model.selectedTrack) {
+  openSoundBrowser(trackId);
+  els.soundBrowser?.classList.add("piano-mode");
+  setFxScope(`${trackId.toUpperCase()} PIANO ROLL`, "A W S E D F T G Y H U J K · PITCH PREVIEW", TRACKS.find(t => t.id === trackId)?.color || "#7edbff");
+  setInfo(`${trackId.toUpperCase()} PIANO ROLL READY`);
+}
+
 function renderSoundBrowser(trackId = soundBrowserTrack) {
   const track = TRACKS.find(t => t.id === trackId) || TRACKS[0];
   const name = model.soundNames[track.id] || track.label;
   if (els.soundBrowserTitle) els.soundBrowserTitle.textContent = `${track.label} · ${name}`;
-  if (els.soundBrowserKey) els.soundBrowserKey.textContent = `SONG KEY C MINOR · ROOT C3 · USE A W S E D F T G Y H U J K`;
+  if (els.soundBrowserKey) els.soundBrowserKey.textContent = `ROOT C3 · ${pitchName(model.tunes[track.id] || 0)} · 24 SEMITONE RANGE · A/W/S KEYS PREVIEW`;
   renderSoundKeys(track.id);
   renderSoundList(track.id);
   syncSoundEq(track.id);
@@ -665,11 +762,24 @@ function renderSoundKeys(trackId) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = isBlack ? "black" : "";
-    btn.textContent = label;
+    btn.classList.toggle("selected", semitones === (model.tunes[trackId] || 0));
+    btn.innerHTML = `<span>${label}</span>${KEY_LABELS[semitones] ? `<small>${KEY_LABELS[semitones]}</small>` : ""}`;
     btn.addEventListener("mouseenter", () => auditionTrackPitch(trackId, semitones));
-    btn.addEventListener("click", () => auditionTrackPitch(trackId, semitones));
+    btn.addEventListener("click", () => setTrackPitchFromPiano(trackId, semitones));
     els.soundKeys.appendChild(btn);
   });
+}
+
+function setTrackPitchFromPiano(trackId, semitones) {
+  remember(`${trackId.toUpperCase()} PIANO NOTE`);
+  model.tunes[trackId] = Math.max(-12, Math.min(12, Number(semitones) || 0));
+  const trackEl = document.querySelector(`.track[data-track="${trackId}"]`);
+  const fader = trackEl?.querySelector(".pitch-fader");
+  if (fader) fader.value = String(model.tunes[trackId]);
+  auditionTrackPitch(trackId, 0);
+  renderSoundBrowser(trackId);
+  drawSoundPianoRoll(trackId);
+  setInfo(`${trackId.toUpperCase()} NOTE ${pitchName(model.tunes[trackId])} ${model.tunes[trackId] >= 0 ? "+" : ""}${model.tunes[trackId]} ST`);
 }
 
 function renderSoundList(trackId) {
@@ -715,9 +825,17 @@ function drawSoundPianoRoll(trackId = soundBrowserTrack) {
   ctx.clearRect(0, 0, c.width, c.height);
   ctx.fillStyle = "#081018";
   ctx.fillRect(0, 0, c.width, c.height);
-  for (let i = 0; i < 16; i++) {
-    ctx.fillStyle = i % 4 === 0 ? "rgba(255,116,23,0.18)" : "rgba(255,255,255,0.045)";
-    ctx.fillRect(i * c.width / 16, 0, 1, c.height);
+  const keyCount = 25;
+  for (let i = 0; i < keyCount; i++) {
+    const semi = i - 12;
+    const x = i * c.width / keyCount;
+    const w = c.width / keyCount - 1;
+    ctx.fillStyle = semi === 0 ? "rgba(255,116,23,0.18)" : "rgba(255,255,255,0.045)";
+    ctx.fillRect(x, 0, 1, c.height);
+    if (semi === (model.tunes[trackId] || 0)) {
+      ctx.fillStyle = "rgba(0,168,255,0.42)";
+      ctx.fillRect(x + 1, 20, w, c.height - 42);
+    }
   }
   const row = TRACKS.findIndex(t => t.id === trackId);
   ctx.fillStyle = TRACKS[row]?.color || "#00a8ff";
@@ -729,7 +847,7 @@ function drawSoundPianoRoll(trackId = soundBrowserTrack) {
   });
   ctx.fillStyle = "#92d8ff";
   ctx.font = "10px Helvetica, Arial";
-  ctx.fillText(`${TRACKS[row]?.label || "PAD"} PATTERN · ${model.length} STEPS · ROOT C3`, 10, c.height - 10);
+  ctx.fillText(`${TRACKS[row]?.label || "PAD"} · ROOT C3 · NOTE ${pitchName(model.tunes[trackId] || 0)} · ${model.tunes[trackId] >= 0 ? "+" : ""}${model.tunes[trackId] || 0} ST`, 10, c.height - 10);
 }
 
 function auditionTrackPitch(trackId, semitones = 0) {
@@ -836,6 +954,11 @@ function crushCurve(amount) {
 }
 
 function mixerFxChain(ctx, destination, trackId, t = ctx.currentTime) {
+  if (renderingDryStems) {
+    const dryInput = ctx.createGain();
+    dryInput.connect(destination);
+    return dryInput;
+  }
   const fx = combinedFx(trackId);
   let input = ctx.createGain();
   let node = input;
@@ -1220,6 +1343,9 @@ function setSequenceLength(length) {
   if (wasPlaying) stop();
   model.length = length;
   model.step = 0;
+  if (els.seqZoom) {
+    els.seqZoom.value = String(length >= 128 ? 52 : length >= 64 ? 44 : 36);
+  }
   buildGrid();
   updateLengthButtons();
   setInfo(`SEQUENCE LENGTH ${length}`);
@@ -1234,12 +1360,17 @@ function updateLengthButtons() {
 function scheduler() {
   const lookAhead = 0.12;
   while (nextNoteTime < audioCtx.currentTime + lookAhead) {
-    scheduleStep(model.step, nextNoteTime + swingOffset(model.step));
+    const scheduledStep = model.step;
+    scheduleStep(scheduledStep, nextNoteTime + swingOffset(scheduledStep));
     model.step = (model.step + 1) % model.length;
+    if (model.step === 0 && model.sampleCutSelf) {
+      stopSampleChops();
+    }
     nextNoteTime += stepDuration();
   }
   refreshScreen();
   drawGrid();
+  followPlayhead();
 }
 
 async function play() {
@@ -1338,7 +1469,6 @@ async function restore(data) {
     return [t.id, src];
   }));
   model.volumes = { ...model.volumes, ...(data.volumes || {}) };
-  model.volumes.snare = Math.max(Number(model.volumes.snare || 0), 1);
   model.tunes = { ...model.tunes, ...(data.tunes || {}) };
   model.decays = { ...model.decays, ...(data.decays || {}) };
   model.tones = { ...model.tones, ...(data.tones || {}) };
@@ -1409,7 +1539,6 @@ function syncControls() {
     window._mainKnobs.swing?.set(model.swing);
     window._mainKnobs.master?.set(model.master);
     window._mainKnobs.masterPitch?.set(model.masterPitch);
-    window._mainKnobs.samplePitch?.set(model.samplePitch);
     window._mainKnobs.fxDepth?.set(model.fx.depth);
   }
   syncFxButtons();
@@ -1526,8 +1655,12 @@ function restorePatternSnapshot(entry) {
 
 function savePatternSlot() {
   const slot = els.patternSlot?.value || "1";
+  savePatternToSlot(slot);
+}
+
+function savePatternToSlot(slot = "1", snapshot = currentPatternSnapshot()) {
   const bank = patternBank();
-  bank[slot] = currentPatternSnapshot();
+  bank[slot] = snapshot;
   localStorage.setItem(PATTERN_BANK_KEY, JSON.stringify(bank));
   if (els.patternStatus) els.patternStatus.textContent = `SLOT ${slot} SAVED · ${model.length} STEPS`;
   setInfo(`PATTERN SLOT ${slot} SAVED`);
@@ -1535,6 +1668,10 @@ function savePatternSlot() {
 
 function loadPatternSlot() {
   const slot = els.patternSlot?.value || "1";
+  loadPatternFromSlot(slot);
+}
+
+function loadPatternFromSlot(slot = "1") {
   const entry = patternBank()[slot];
   if (!entry) {
     if (els.patternStatus) els.patternStatus.textContent = `SLOT ${slot} EMPTY`;
@@ -1590,6 +1727,145 @@ function appendPatternSlot() {
   drawGrid();
   if (els.patternStatus) els.patternStatus.textContent = `SLOT ${slot} APPENDED`;
   setInfo(`PATTERN SLOT ${slot} APPENDED`);
+}
+
+function buildPatternChain() {
+  const bank = patternBank();
+  const slots = String(els.patternChain?.value || "")
+    .split(/[,\s]+/)
+    .map(item => item.trim())
+    .filter(Boolean);
+  if (!slots.length) {
+    if (els.patternStatus) els.patternStatus.textContent = "ENTER SLOT NUMBERS";
+    return;
+  }
+  const entries = slots.map(slot => [slot, bank[slot]]).filter(([, entry]) => !!entry);
+  if (!entries.length) {
+    if (els.patternStatus) els.patternStatus.textContent = "NO VALID CHAIN SLOTS";
+    setInfo("NO VALID PATTERN CHAIN");
+    return;
+  }
+  remember("PATTERN CHAIN");
+  TRACKS.forEach(track => model.pattern[track.id].fill(false));
+  let cursor = 0;
+  entries.forEach(([, entry]) => {
+    const entryLength = Math.min(Number(entry.length || 16), MAX_STEPS - cursor);
+    TRACKS.forEach(track => {
+      for (let i = 0; i < entryLength; i++) {
+        model.pattern[track.id][cursor + i] = !!entry.pattern?.[track.id]?.[i];
+      }
+    });
+    cursor += entryLength;
+  });
+  model.length = LENGTH_OPTIONS.find(len => len >= cursor) || MAX_STEPS;
+  syncControls();
+  drawGrid();
+  if (els.patternStatus) els.patternStatus.textContent = `CHAIN ${entries.map(([slot]) => slot).join(" > ")} · ${model.length} STEPS`;
+  setInfo("PATTERN CHAIN BUILT");
+}
+
+function setPatternSlot(slot = "1") {
+  if (els.patternSlot) els.patternSlot.value = String(slot);
+}
+
+function savePatternRange(slot, start, length) {
+  const snap = currentPatternSnapshot();
+  snap.length = length;
+  snap.pattern = Object.fromEntries(TRACKS.map(track => {
+    const data = new Array(MAX_STEPS).fill(false);
+    for (let i = 0; i < length; i++) data[i] = !!model.pattern[track.id][start + i];
+    return [track.id, data];
+  }));
+  savePatternToSlot(String(slot), snap);
+}
+
+function makePatternOneTwo() {
+  remember("MAKE P1 P2");
+  const partLength = Math.min(16, model.length);
+  savePatternRange("1", 0, partLength);
+  const secondStart = model.length > 16 ? 16 : 0;
+  savePatternRange("2", secondStart, partLength);
+  if (els.patternChain) els.patternChain.value = "1,2";
+  if (els.patternStatus) els.patternStatus.textContent = "P1 / P2 READY · CHAIN 1 > 2";
+  setInfo("P1 / P2 READY");
+}
+
+function linkPatternOneTwo() {
+  if (els.patternChain) els.patternChain.value = "1,2";
+  buildPatternChain();
+}
+
+function copyCurrentPattern() {
+  copiedPattern = currentPatternSnapshot();
+  if (els.patternStatus) els.patternStatus.textContent = "CURRENT PATTERN COPIED";
+  setInfo("CURRENT PATTERN COPIED");
+}
+
+function copySelectedPatternSlot() {
+  const slot = els.patternSlot?.value || "1";
+  const entry = patternBank()[slot];
+  if (!entry) {
+    if (els.patternStatus) els.patternStatus.textContent = `SLOT ${slot} EMPTY`;
+    return;
+  }
+  copiedPattern = structuredClone(entry);
+  if (els.patternStatus) els.patternStatus.textContent = `SLOT ${slot} COPIED`;
+  setInfo(`PATTERN SLOT ${slot} COPIED`);
+}
+
+function pastePatternToSelectedSlot() {
+  if (!copiedPattern) {
+    if (els.patternStatus) els.patternStatus.textContent = "NO PATTERN COPIED";
+    setInfo("NO PATTERN COPIED");
+    return;
+  }
+  const slot = els.patternSlot?.value || "1";
+  savePatternToSlot(slot, { ...copiedPattern, savedAt: new Date().toISOString() });
+}
+
+function clearCurrentPattern() {
+  remember("CLEAR PATTERN");
+  TRACKS.forEach(track => model.pattern[track.id].fill(false));
+  model.step = 0;
+  drawGrid();
+  refreshScreen();
+  if (els.patternStatus) els.patternStatus.textContent = "CURRENT PATTERN CLEARED";
+  setInfo("CURRENT PATTERN CLEARED");
+}
+
+function showPatternMenu(x, y) {
+  if (!els.patternMenu) return;
+  hideStepMenu();
+  hideUnitMenu();
+  els.patternMenu.hidden = false;
+  els.patternMenu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
+  els.patternMenu.style.top = `${Math.min(y, window.innerHeight - 220)}px`;
+}
+
+function hidePatternMenu() {
+  if (els.patternMenu) els.patternMenu.hidden = true;
+}
+
+function bindReadyCollapses() {
+  document.querySelectorAll(".sampler-head, .seq-head, .template-head, .fx-head").forEach(head => {
+    head.addEventListener("contextmenu", event => {
+      event.preventDefault();
+      head.classList.toggle("ready-collapsed");
+      const label = head.querySelector("h2, .seq-title")?.textContent?.trim() || "READY";
+      setInfo(`${label} STATUS ${head.classList.contains("ready-collapsed") ? "LAMP" : "LABEL"}`);
+    });
+  });
+}
+
+function applyPatternAction(action) {
+  if (action === "copy-current") copyCurrentPattern();
+  if (action === "copy-slot") copySelectedPatternSlot();
+  if (action === "paste-slot") pastePatternToSelectedSlot();
+  if (action === "clear-current") clearCurrentPattern();
+  if (action === "save-slot") savePatternSlot();
+  if (action === "load-slot") loadPatternSlot();
+  if (action === "link-1-2") linkPatternOneTwo();
+  hidePatternMenu();
 }
 
 async function restoreCustomTrackSounds() {
@@ -1736,43 +2012,52 @@ async function loadFactoryKit() {
   }
 }
 
-function renderTrack(trackId, lengthSec, sampleRate) {
+function trackIsUsed(trackId) {
+  if (trackId === "sample") return !!(sampleBuffer && model.sampleRun) || model.pattern.sample.slice(0, model.length).some(Boolean);
+  return model.pattern[trackId].slice(0, model.length).some(Boolean);
+}
+
+function renderTrack(trackId, lengthSec, sampleRate, options = {}) {
   const off = new OfflineAudioContext(2, Math.ceil(lengthSec * sampleRate), sampleRate);
   const out = off.createGain();
   out.gain.value = 0.9;
   out.connect(off.destination);
   const stepSec = stepDuration();
-  for (let i = 0; i < model.length; i++) {
-    if (model.pattern[trackId][i]) trigger(trackId, i * stepSec + swingOffset(i), off, out);
-  }
-  if (trackId === "sample" && sampleBuffer && model.sampleRun) {
-    const src = off.createBufferSource();
-    const g = off.createGain();
-    const region = sampleRegion();
-    src.buffer = sampleBuffer;
-    src.loop = true;
-    src.loopStart = region.start;
-    src.loopEnd = region.end;
-    src.playbackRate.value = model.sampleTimeStretch ? 1 : samplePlaybackRate() * samplePitchRate();
-    g.gain.value = model.volumes.sample;
-    src.connect(mixerFxChain(off, g, "sample"));
-    g.connect(out);
-    src.start(0, region.start);
-    src.stop(model.length * stepSec);
+  const previousDry = renderingDryStems;
+  renderingDryStems = options.includeFx === false;
+  try {
+    for (let i = 0; i < model.length; i++) {
+      if (model.pattern[trackId][i]) trigger(trackId, i * stepSec + swingOffset(i), off, out);
+    }
+    if (trackId === "sample" && sampleBuffer && model.sampleRun) {
+      const src = off.createBufferSource();
+      const g = off.createGain();
+      const region = sampleRegion();
+      src.buffer = sampleBuffer;
+      src.loop = true;
+      src.loopStart = region.start;
+      src.loopEnd = region.end;
+      src.playbackRate.value = model.sampleTimeStretch ? 1 : samplePlaybackRate() * samplePitchRate();
+      g.gain.value = model.volumes.sample;
+      src.connect(mixerFxChain(off, g, "sample"));
+      g.connect(out);
+      src.start(0, region.start);
+      src.stop(model.length * stepSec);
+    }
+  } finally {
+    renderingDryStems = previousDry;
   }
   return off.startRendering();
 }
 
-async function renderMasterAndStems(withStems) {
+async function renderMasterAndStems(withStems, options = {}) {
   if (!audioCtx) ensureAudio();
   const sampleRate = audioCtx.sampleRate;
   const lengthSec = model.length * stepDuration() + 0.6;
   const stems = {};
   for (const track of TRACKS) {
-    const hasSteps = model.pattern[track.id].slice(0, model.length).some(Boolean);
-    const hasSampleLoop = track.id === "sample" && sampleBuffer && model.sampleRun;
-    if (!hasSteps && !hasSampleLoop) continue;
-    stems[track.id] = await renderTrack(track.id, lengthSec, sampleRate);
+    if (!trackIsUsed(track.id)) continue;
+    stems[track.id] = await renderTrack(track.id, lengthSec, sampleRate, { includeFx: options.includeStemFx !== false });
   }
   const master = await mixBuffers(Object.values(stems), lengthSec, sampleRate);
   return { master, stems: withStems ? stems : {} };
@@ -1949,7 +2234,8 @@ function bufferRms(buffer) {
 async function exportAudio(format, stemsEnabled) {
   stop();
   setInfo("EXPORT RENDERING");
-  const rendered = await renderMasterAndStems(stemsEnabled);
+  const printStemFx = els.stemsFxToggle?.checked !== false;
+  const rendered = await renderMasterAndStems(stemsEnabled, { includeStemFx: printStemFx });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   if (format === "mp3") {
     try {
@@ -1962,12 +2248,53 @@ async function exportAudio(format, stemsEnabled) {
     download(wavBlob(rendered.master), `GR4600_MASTER_${model.tempo}BPM_${stamp}.wav`);
   }
   if (stemsEnabled) {
-    for (const [trackId, buffer] of Object.entries(rendered.stems)) {
-      download(wavBlob(buffer), `GR4600_${trackId.toUpperCase()}_${model.tempo}BPM_${stamp}.wav`);
-      await new Promise(resolve => setTimeout(resolve, 220));
-    }
+    const files = Object.entries(rendered.stems).map(([trackId, buffer]) => ({
+      name: `GR4600_STEMS_${model.tempo}BPM/${trackId.toUpperCase()}_${printStemFx ? "FX" : "DRY"}.wav`,
+      blob: wavBlob(buffer),
+    }));
+    const zip = await zipBlobs(files);
+    download(zip, `GR4600_STEMS_${model.tempo}BPM_${printStemFx ? "FX" : "DRY"}_${stamp}.zip`);
   }
   setInfo(stemsEnabled ? "MASTER + STEMS EXPORTED" : "MASTER EXPORTED");
+}
+
+async function zipBlobs(files) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  const write16 = (arr, value) => { arr.push(value & 255, (value >> 8) & 255); };
+  const write32 = (arr, value) => { arr.push(value & 255, (value >> 8) & 255, (value >> 16) & 255, (value >> 24) & 255); };
+  for (const file of files) {
+    const data = new Uint8Array(await file.blob.arrayBuffer());
+    const name = encoder.encode(file.name);
+    const crc = crc32(data);
+    const local = [];
+    write32(local, 0x04034b50); write16(local, 20); write16(local, 0); write16(local, 0);
+    write16(local, 0); write16(local, 0); write32(local, crc); write32(local, data.length); write32(local, data.length);
+    write16(local, name.length); write16(local, 0);
+    chunks.push(new Uint8Array(local), name, data);
+    const entry = [];
+    write32(entry, 0x02014b50); write16(entry, 20); write16(entry, 20); write16(entry, 0); write16(entry, 0);
+    write16(entry, 0); write16(entry, 0); write32(entry, crc); write32(entry, data.length); write32(entry, data.length);
+    write16(entry, name.length); write16(entry, 0); write16(entry, 0); write16(entry, 0); write16(entry, 0); write32(entry, 0); write32(entry, offset);
+    central.push(new Uint8Array(entry), name);
+    offset += local.length + name.length + data.length;
+  }
+  const centralSize = central.reduce((sum, part) => sum + part.length, 0);
+  const end = [];
+  write32(end, 0x06054b50); write16(end, 0); write16(end, 0); write16(end, files.length); write16(end, files.length);
+  write32(end, centralSize); write32(end, offset); write16(end, 0);
+  return new Blob([...chunks, ...central, new Uint8Array(end)], { type: "application/zip" });
+}
+
+function crc32(data) {
+  let crc = -1;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data[i];
+    for (let j = 0; j < 8; j++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return (crc ^ -1) >>> 0;
 }
 
 function bindUi() {
@@ -1998,19 +2325,10 @@ function bindUi() {
       }
     }),
     masterPitch: mountKnob(els.masterPitchKnob, {
-      label: "PITCH", min: -12, max: 12, value: model.masterPitch, unit: "st",
+      label: "PITCH", min: -24, max: 24, value: model.masterPitch, unit: "st",
       onChange: value => {
         model.masterPitch = Math.round(value);
         els.masterPitch.value = String(model.masterPitch);
-        refreshScreen();
-      }
-    }),
-    samplePitch: mountKnob(els.samplePitchKnob, {
-      label: "TUNE", min: -12, max: 12, value: model.samplePitch, unit: "st",
-      onChange: value => {
-        model.samplePitch = Math.round(value);
-        els.samplePitch.value = String(model.samplePitch);
-        if (model.playing && model.sampleRun) startSampleLoop();
         refreshScreen();
       }
     }),
@@ -2051,11 +2369,10 @@ function bindUi() {
     refreshScreen();
   });
   els.samplePitch.addEventListener("input", () => {
-    model.samplePitch = Number(els.samplePitch.value);
-    window._mainKnobs.samplePitch.set(model.samplePitch);
-    if (model.playing && model.sampleRun) startSampleLoop();
-    refreshScreen();
+    setSamplePitch(els.samplePitch.value);
   });
+  els.samplePitchDown?.addEventListener("click", () => setSamplePitch(model.samplePitch - 1));
+  els.samplePitchUp?.addEventListener("click", () => setSamplePitch(model.samplePitch + 1));
   els.sampleStart?.addEventListener("input", () => {
     model.sampleStart = Math.min(Number(els.sampleStart.value) / 100, (model.sampleEnd || 1) - 0.01);
     syncControls();
@@ -2100,6 +2417,11 @@ function bindUi() {
   els.clearBtn.addEventListener("click", () => clearProject(false));
   document.querySelectorAll(".length-btn").forEach(btn => {
     btn.addEventListener("click", () => setSequenceLength(Number(btn.dataset.length)));
+  });
+  els.seqZoom?.addEventListener("input", () => {
+    updateSequencerViewport();
+    followPlayhead();
+    setInfo(`SEQUENCER ZOOM ${els.seqZoom.value}`);
   });
   document.querySelectorAll(".fx-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -2157,6 +2479,29 @@ function bindUi() {
   els.patternLoadBtn?.addEventListener("click", loadPatternSlot);
   els.patternDuplicateBtn?.addEventListener("click", duplicatePatternSlot);
   els.patternAppendBtn?.addEventListener("click", appendPatternSlot);
+  els.patternChainBtn?.addEventListener("click", buildPatternChain);
+  els.patternOneSaveBtn?.addEventListener("click", () => { setPatternSlot("1"); savePatternSlot(); });
+  els.patternOneLoadBtn?.addEventListener("click", () => { setPatternSlot("1"); loadPatternSlot(); });
+  els.patternTwoSaveBtn?.addEventListener("click", () => { setPatternSlot("2"); savePatternSlot(); });
+  els.patternTwoLoadBtn?.addEventListener("click", () => { setPatternSlot("2"); loadPatternSlot(); });
+  els.patternOneTwoBtn?.addEventListener("click", linkPatternOneTwo);
+  els.patternSplitBtn?.addEventListener("click", makePatternOneTwo);
+  els.patternBuilderBtn?.addEventListener("contextmenu", event => {
+    event.preventDefault();
+    showPatternMenu(event.clientX, event.clientY);
+  });
+  els.sequencerPanel?.addEventListener("contextmenu", event => {
+    if (event.target.closest(".step")) return;
+    event.preventDefault();
+    showPatternMenu(event.clientX, event.clientY);
+  });
+  els.patternSlot?.addEventListener("contextmenu", event => {
+    event.preventDefault();
+    showPatternMenu(event.clientX, event.clientY);
+  });
+  els.patternMenu?.querySelectorAll("[data-pattern-action]").forEach(btn => {
+    btn.addEventListener("click", () => applyPatternAction(btn.dataset.patternAction));
+  });
   els.copyTrackBtn?.addEventListener("click", copySelectedTrack);
   els.pasteTrackBtn?.addEventListener("click", pasteSelectedTrack);
   els.stepMenu?.querySelectorAll("[data-fill]").forEach(btn => {
@@ -2165,6 +2510,7 @@ function bindUi() {
       hideStepMenu();
     });
   });
+  bindReadyCollapses();
   els.soundBrowserClose?.addEventListener("click", () => {
     if (els.soundBrowser) els.soundBrowser.hidden = true;
   });
@@ -2229,6 +2575,7 @@ function bindUi() {
   window.addEventListener("click", () => {
     hideStepMenu();
     hideUnitMenu();
+    hidePatternMenu();
   });
   els.exportBtn.addEventListener("click", () => els.exportDialog.showModal());
   els.helpBtn.addEventListener("click", () => els.helpDialog.showModal());
@@ -2284,10 +2631,10 @@ function bindUi() {
       model.playing ? stop() : play();
       return;
     }
-    if (!els.soundBrowser?.hidden && KEY_MAP[event.code] !== undefined) {
+    if (KEY_MAP[event.code] !== undefined) {
       event.preventDefault();
       await unlockAudio();
-      auditionTrackPitch(soundBrowserTrack, KEY_MAP[event.code]);
+      auditionTrackPitch(els.soundBrowser?.hidden ? model.selectedTrack : soundBrowserTrack, KEY_MAP[event.code]);
       return;
     }
     if (PAD_KEY_MAP[event.code]) {
@@ -2315,6 +2662,7 @@ function selectPad(trackId) {
   syncPadSelection();
   syncTrackSelection();
   const label = TRACKS.find(t => t.id === trackId)?.label || trackId;
+  setFxScope(`${label} PAD`, "PAD TOUCHED", TRACKS.find(t => t.id === trackId)?.color || "#7edbff");
   setInfo(`${label} SELECTED · QUICK FX READY`);
 }
 
@@ -2332,6 +2680,7 @@ function selectTrack(trackId) {
   syncPadSelection();
   syncTrackSelection();
   syncMixFxButtons();
+  setFxScope(`${TRACKS.find(t => t.id === trackId).label} TRACK`, "TRACK SELECTED", TRACKS.find(t => t.id === trackId)?.color || "#7edbff");
   setInfo(`${TRACKS.find(t => t.id === trackId).label} TRACK SELECTED`);
 }
 
@@ -2400,6 +2749,8 @@ async function applyUnitAction(action) {
     setInfo(`${trackId.toUpperCase()} ${model.muted[trackId] ? "MUTED" : "ON"}`);
   } else if (action === "browser") {
     openSoundBrowser(trackId);
+  } else if (action === "piano-roll") {
+    openPianoRoll(trackId);
   } else if (action === "browse-file") {
     document.querySelector(`.track[data-track="${trackId}"] .sound-file`)?.click();
   } else if (action === "mixer") {
@@ -2472,11 +2823,16 @@ function syncMixFxButtons() {
   const label = target === "master" ? "MASTER" : `${TRACKS.find(t => t.id === target)?.label || target} CHANNEL`;
   const active = Object.entries(bank).filter(([, value]) => value).map(([key]) => key.toUpperCase());
   els.mixFxStatus.textContent = `${label}: ${active.length ? active.join(" + ") : "DRY"}`;
+  setFxScope(label, active.length ? active.join(" + ") : "DRY", target === "master" ? "#ff7417" : (TRACKS.find(t => t.id === target)?.color || "#7edbff"));
 }
 
 function updateFxReadout() {
   const active = activeFxNames();
   els.fxReadout.textContent = active.length ? active.join(" + ") : "FX OFF";
+  const target = els.fxTarget?.value || model.selectedTrack;
+  const label = target === "master" ? "MASTER" : `${TRACKS.find(t => t.id === target)?.label || model.selectedTrack} BUS`;
+  const perf = active.length ? active.join(" + ") : "PERFORMANCE DRY";
+  setFxScope(label, `${perf} · DEPTH ${Math.round(model.fx.depth * 100)} · ${model.fx.sliceTiming || "1/4"}`, target === "master" ? "#ff7417" : (TRACKS.find(t => t.id === target)?.color || "#7edbff"));
 }
 
 function activeFxNames() {
@@ -2496,22 +2852,28 @@ function drawFxDisplay() {
   const now = performance.now() * 0.001;
   fxPulse *= 0.92;
 
-  ctx.fillStyle = "#101808";
+  const accent = fxDisplayState.accent || "#7edbff";
+  ctx.fillStyle = "#071019";
   ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "rgba(178, 224, 101, 0.08)";
+  ctx.fillStyle = "rgba(126, 219, 255, 0.08)";
   for (let y = 4; y < h; y += 8) ctx.fillRect(0, y, w, 1);
-  ctx.fillStyle = "rgba(178, 224, 101, 0.12)";
+  ctx.fillStyle = "rgba(255, 116, 23, 0.08)";
   for (let x = 10; x < w; x += 22) ctx.fillRect(x, 0, 1, h);
 
   ctx.font = "700 12px Courier New, monospace";
-  ctx.fillStyle = "#b5e36b";
-  ctx.fillText("GR4600 OS // FX BUS", 12, 18);
+  ctx.fillStyle = "#d8f7ff";
+  ctx.fillText("GR4600 FX MODULE", 12, 18);
+  ctx.fillStyle = accent;
+  ctx.fillRect(12, 23, Math.max(28, Math.min(150, depth * 1.5)), 3);
   ctx.font = "700 10px Courier New, monospace";
-  ctx.fillStyle = "#7ea34a";
-  ctx.fillText(`BPM ${model.tempo}  STEP ${String(model.step + 1).padStart(2, "0")}/${model.length}`, 12, 35);
-  ctx.fillText(`DEPTH ${String(depth).padStart(3, "0")}  SLICE ${model.fx.sliceTiming || "1/4"}`, 12, 51);
-  ctx.fillText(`${active.length ? active.join("/") : "DRY"}  PAD ${TRACKS.findIndex(t => t.id === model.selectedPad) + 1 || 1}`, 12, 67);
-  if (model.sampleStretch) ctx.fillText("TIME STRETCH", 220, 51);
+  ctx.fillStyle = "#7edbff";
+  ctx.fillText(`TARGET ${String(fxDisplayState.target || "MASTER").slice(0, 22)}`, 12, 39);
+  ctx.fillStyle = "#a8dff1";
+  ctx.fillText(`TOUCH  ${String(fxDisplayState.touched || fxDisplayState.detail || "READY").slice(0, 28)}`, 12, 54);
+  ctx.fillStyle = "#ffb36e";
+  ctx.fillText(`DEPTH ${String(depth).padStart(3, "0")}  TIMING ${model.fx.sliceTiming || "1/4"}  STEP ${String(model.step + 1).padStart(2, "0")}`, 12, 69);
+  ctx.fillStyle = "#d8f7ff";
+  ctx.fillText(`${active.length ? active.join("/") : "PERF DRY"}  ${model.sampleStretch ? "STRETCH" : "CLASSIC"}`, 182, 18);
 
   const meterBase = 82;
   for (let i = 0; i < 24; i++) {
@@ -2519,7 +2881,7 @@ function drawFxDisplay() {
     const activeLift = active.length ? 0.25 : 0;
     const level = Math.min(1, fxPulse + activeLift) * phase;
     const barH = 5 + Math.round(level * 27 * ((i % 5) / 5 + 0.35));
-    ctx.fillStyle = i % 8 === 7 ? "#ff7417" : "#b5e36b";
+    ctx.fillStyle = i % 8 === 7 ? "#ff7417" : i % 3 === 0 ? accent : "#7edbff";
     ctx.fillRect(12 + i * 13, meterBase - barH, 8, barH);
   }
 

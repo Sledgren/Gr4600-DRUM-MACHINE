@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GR4600 Drum Machine</title>
   <meta name="description" content="GR4600 is a browser drum machine and sampler by Glitchrealm.">
-  <link rel="stylesheet" href="style.css?v=1028">
+  <link rel="stylesheet" href="style.css?v=1034">
 </head>
 <body>
   <main class="machine" aria-label="GR4600 drum machine">
     <header class="topbar">
       <div class="brand">
         <div class="brand-title">GR4600</div>
-        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.2.8</span></div>
+        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.3.4</span></div>
       </div>
       <img class="brand-logo" src="assets/glitchrealm-logo.webp" alt="Glitchrealm logo">
       <div class="actions">
@@ -26,10 +26,21 @@
 
     <section class="panel transport-panel">
       <div class="screen">
-        <div id="screenTempo" class="screen-main">BPM: 140</div>
-        <div id="screenState">STOP</div>
-        <div id="screenInfo">SYSTEM READY · MASTER WAV</div>
-        <div id="screenStep">STEP 1 / 16</div>
+        <div class="screen-topline">
+          <div id="screenTempo" class="screen-main">BPM 140</div>
+          <div id="screenState" class="screen-state">STOP</div>
+        </div>
+        <div class="screen-grid">
+          <div class="screen-card is-blue"><span>TEMPO</span><b id="screenTempoMini">140</b></div>
+          <div class="screen-card"><span>KEY</span><b id="screenKey">C MIN</b></div>
+          <div class="screen-card"><span>PATTERN</span><b id="screenPattern">1 / 16</b></div>
+          <div class="screen-card"><span>MODE</span><b id="screenMode">BEAT</b></div>
+        </div>
+        <div class="screen-playlist">
+          <span id="screenInfo">SYSTEM READY · MASTER WAV</span>
+          <i></i><i></i><i></i><i></i>
+        </div>
+        <div id="screenStep" class="screen-step">STEP 1 / 16</div>
       </div>
 
       <div class="hardware-controls">
@@ -57,7 +68,7 @@
         <div class="control-cluster pitch-box">
           <label for="masterPitch">MASTER TUNE</label>
           <div id="masterPitchKnob" class="knob-mount"></div>
-          <input id="masterPitch" type="range" min="-12" max="12" step="1" value="0">
+          <input id="masterPitch" type="range" min="-24" max="24" step="1" value="0">
           <span id="masterPitchReadout">0 ST</span>
         </div>
       </div>
@@ -154,11 +165,12 @@
           <p id="sampleName">No sample loaded</p>
         </div>
         <div class="sampler-actions">
-          <div class="control-cluster sample-pitch-box">
-            <label for="samplePitch">TUNE</label>
-            <div id="samplePitchKnob" class="knob-mount"></div>
+          <div class="sample-key-box">
+            <span>KEY SHIFT</span>
+            <button id="samplePitchDown" type="button">-</button>
             <input id="samplePitch" type="range" min="-12" max="12" step="1" value="0">
-            <span id="samplePitchReadout">0 ST</span>
+            <strong id="samplePitchReadout">C MIN</strong>
+            <button id="samplePitchUp" type="button">+</button>
           </div>
           <button id="sampleRunBtn" type="button" class="on">MONITOR</button>
           <button id="sampleStretchBtn" type="button">STRETCH</button>
@@ -179,12 +191,28 @@
           <input id="sampleTimeStretch" type="checkbox" checked>
           <i></i>
         </label>
-        <div class="sample-readers">
-          <span id="sampleKeyReadout">KEY --</span>
-          <span id="sampleTempoReadout">TEMPO --</span>
-        </div>
       </div>
-      <canvas id="wave" width="960" height="130" aria-label="sample waveform"></canvas>
+      <div class="sample-display">
+        <div class="sampler-mini-screen">
+          <div>
+            <span>ROOT KEY</span>
+            <strong id="sampleKeyReadout">KEY --</strong>
+          </div>
+          <div>
+            <span>TEMPO</span>
+            <strong id="sampleTempoReadout">TEMPO --</strong>
+          </div>
+          <div>
+            <span>SHIFT</span>
+            <strong id="sampleShiftReadout">0 ST</strong>
+          </div>
+          <div>
+            <span>MODE</span>
+            <strong id="sampleModeReadout">CLASSIC</strong>
+          </div>
+        </div>
+        <canvas id="wave" width="960" height="130" aria-label="sample waveform"></canvas>
+      </div>
       <div class="sample-slice-controls">
         <label>START<input id="sampleStart" type="range" min="0" max="99" step="1" value="0"><span id="sampleStartReadout">0%</span></label>
         <label>END<input id="sampleEnd" type="range" min="1" max="100" step="1" value="100"><span id="sampleEndReadout">100%</span></label>
@@ -218,24 +246,28 @@
             <button class="length-btn" data-length="64" type="button">64</button>
             <button class="length-btn" data-length="128" type="button">128</button>
           </div>
-          <button id="patternBuilderBtn" type="button">PATTERN BUILDER</button>
-          <button id="copyTrackBtn" type="button">COPY TRACK</button>
-          <button id="pasteTrackBtn" type="button">PASTE TRACK</button>
-          <button id="clearBtn" type="button">CLEAR PATTERN</button>
+          <button id="patternBuilderBtn" class="pattern-open-btn" type="button">BUILDER</button>
+          <label class="seq-zoom-control">ZOOM
+            <input id="seqZoom" type="range" min="24" max="72" step="2" value="36">
+          </label>
+          <div class="seq-legend">RIGHT CLICK: COPY · PASTE · CLEAR · FILL</div>
+          <button id="copyTrackBtn" class="seq-hidden-action" type="button" aria-hidden="true" tabindex="-1">COPY TRACK</button>
+          <button id="pasteTrackBtn" class="seq-hidden-action" type="button" aria-hidden="true" tabindex="-1">PASTE TRACK</button>
+          <button id="clearBtn" class="seq-hidden-action" type="button" aria-hidden="true" tabindex="-1">CLEAR PATTERN</button>
         </div>
       </div>
       <div id="grid" class="grid"></div>
     </section>
 
     <section class="pads" aria-label="performance pads">
-      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:58%"></i></span></div><button data-pad="kick" data-chop="0" type="button"><span class="pad-slot"><i></i></span><span>PAD 1</span></button></div>
-      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:64%"></i></span></div><button data-pad="snare" data-chop="1" type="button"><span class="pad-slot"><i></i></span><span>PAD 2</span></button></div>
-      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:52%"></i></span></div><button data-pad="hat" data-chop="2" type="button"><span class="pad-slot"><i></i></span><span>PAD 3</span></button></div>
-      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:46%"></i></span></div><button data-pad="open" data-chop="3" type="button"><span class="pad-slot"><i></i></span><span>PAD 4</span></button></div>
-      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:60%"></i></span></div><button data-pad="clap" data-chop="4" type="button"><span class="pad-slot"><i></i></span><span>PAD 5</span></button></div>
-      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:56%"></i></span></div><button data-pad="perc" data-chop="5" type="button"><span class="pad-slot"><i></i></span><span>PAD 6</span></button></div>
-      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:62%"></i></span></div><button data-pad="sample" data-chop="6" type="button"><span class="pad-slot"><i></i></span><span>PAD 7</span></button></div>
-      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob"></span><span class="pad-mini-fader"><i style="--pos:66%"></i></span></div><button data-pad="bass" data-chop="7" type="button"><span class="pad-slot"><i></i></span><span>PAD 8</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob" title="Pan"></span></div><button data-pad="kick" data-chop="0" type="button"><span class="pad-slot"><i></i></span><span>PAD 1</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob" title="Pan"></span></div><button data-pad="snare" data-chop="1" type="button"><span class="pad-slot"><i></i></span><span>PAD 2</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob" title="Pan"></span></div><button data-pad="hat" data-chop="2" type="button"><span class="pad-slot"><i></i></span><span>PAD 3</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob" title="Pan"></span></div><button data-pad="open" data-chop="3" type="button"><span class="pad-slot"><i></i></span><span>PAD 4</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob" title="Pan"></span></div><button data-pad="clap" data-chop="4" type="button"><span class="pad-slot"><i></i></span><span>PAD 5</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob" title="Pan"></span></div><button data-pad="perc" data-chop="5" type="button"><span class="pad-slot"><i></i></span><span>PAD 6</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob" title="Pan"></span></div><button data-pad="sample" data-chop="6" type="button"><span class="pad-slot"><i></i></span><span>PAD 7</span></button></div>
+      <div class="pad-unit bank-a"><div class="pad-mini"><span class="pad-mini-knob" title="Pan"></span></div><button data-pad="bass" data-chop="7" type="button"><span class="pad-slot"><i></i></span><span>PAD 8</span></button></div>
     </section>
   </main>
 
@@ -254,6 +286,10 @@
         <input id="stemsToggle" type="checkbox">
         <span>EXPORT TRACK STEMS</span>
       </label>
+      <label class="choice">
+        <input id="stemsFxToggle" type="checkbox" checked>
+        <span>PRINT INSERT FX TO STEMS</span>
+      </label>
       <div class="dialog-actions">
         <button value="cancel" type="submit">CANCEL</button>
         <button id="confirmExport" value="export" type="submit">EXPORT</button>
@@ -264,27 +300,46 @@
   <dialog id="patternDialog" class="pattern-dialog">
     <form method="dialog">
       <h2>GR4600 PATTERN BUILDER</h2>
-      <p class="dialog-note">Save full patterns into hidden slots, recall them, duplicate them, or append one after the current groove for fast song building.</p>
-      <label class="choice">
-        <span>PATTERN SLOT</span>
-        <select id="patternSlot">
-          <option value="1">SLOT 1</option>
-          <option value="2">SLOT 2</option>
-          <option value="3">SLOT 3</option>
-          <option value="4">SLOT 4</option>
-          <option value="5">SLOT 5</option>
-          <option value="6">SLOT 6</option>
-          <option value="7">SLOT 7</option>
-          <option value="8">SLOT 8</option>
-        </select>
-      </label>
-      <div id="patternStatus" class="pattern-status">NO SLOT LOADED</div>
-      <div class="dialog-actions pattern-actions">
-        <button id="patternSaveBtn" value="stay" type="button">SAVE SLOT</button>
-        <button id="patternLoadBtn" value="stay" type="button">LOAD SLOT</button>
-        <button id="patternDuplicateBtn" value="stay" type="button">DUPLICATE</button>
-        <button id="patternAppendBtn" value="stay" type="button">APPEND</button>
-        <button value="close" type="submit">CLOSE</button>
+      <div class="pattern-browser">
+        <aside class="pattern-sidebar">
+          <strong>PATTERN SLOTS</strong>
+          <select id="patternSlot" size="8">
+            <option value="1">01 MAIN GROOVE</option>
+            <option value="2">02 VARIATION</option>
+            <option value="3">03 BREAK</option>
+            <option value="4">04 HOOK</option>
+            <option value="5">05 BRIDGE</option>
+            <option value="6">06 OUTRO</option>
+            <option value="7">07 ALT A</option>
+            <option value="8">08 ALT B</option>
+          </select>
+        </aside>
+        <section class="pattern-workspace">
+          <div class="pattern-quick">
+            <button id="patternOneSaveBtn" type="button">SAVE P1</button>
+            <button id="patternOneLoadBtn" type="button">LOAD P1</button>
+            <button id="patternTwoSaveBtn" type="button">SAVE P2</button>
+            <button id="patternTwoLoadBtn" type="button">LOAD P2</button>
+            <button id="patternOneTwoBtn" type="button">LINK P1 + P2</button>
+            <button id="patternSplitBtn" type="button">MAKE P1 / P2</button>
+          </div>
+          <div class="pattern-lane">
+            <span>CHAIN</span>
+            <input id="patternChain" type="text" value="1,2,3,4" aria-label="pattern chain slots">
+          </div>
+          <div id="patternStatus" class="pattern-status">SELECT A SLOT OR BUILD A CHAIN</div>
+          <div class="pattern-timeline" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <div class="dialog-actions pattern-actions">
+            <button id="patternSaveBtn" value="stay" type="button">SAVE SLOT</button>
+            <button id="patternLoadBtn" value="stay" type="button">LOAD SLOT</button>
+            <button id="patternDuplicateBtn" value="stay" type="button">DUPLICATE</button>
+            <button id="patternAppendBtn" value="stay" type="button">APPEND</button>
+            <button id="patternChainBtn" value="stay" type="button">BUILD CHAIN</button>
+            <button value="close" type="submit">CLOSE</button>
+          </div>
+        </section>
       </div>
     </form>
   </dialog>
@@ -301,17 +356,32 @@
         <section>
           <h3>Pattern Editing</h3>
           <div class="help-flow"><span>Right-click Step</span><b></b><span>Fill Every 2/4/6/8</span><b></b><span>Copy Track</span></div>
-          <p>Use 16, 32, 64, or 128 steps. Right-click the sequencer to add fast fills and rolls. Select a track, then use COPY TRACK and PASTE TRACK to duplicate a groove to another lane.</p>
+          <p>Use 16, 32, 64, or 128 steps. Right-click steps for fills and rolls, or right-click the sequencer panel for pattern copy, paste, clear, save, load, and P1/P2 linking.</p>
         </section>
         <section>
           <h3>Keyboard And Right Click</h3>
           <div class="help-flow"><span>Space</span><b></b><span>Play/Stop</span><b></b><span>1-8</span><b></b><span>Trigger Pads</span></div>
-          <p>Space starts and stops transport. Number keys 1-8 trigger pads. When the hidden sound browser is open, A/W/S/E/D/F/T/G/Y/H/U/J/K plays the selected sound across pitches. Right-click pads or tracks for Mute, Sound Browser, Browse Sound File, Mixer, Copy, Paste, Undo, and Redo. Undo/Redo keeps the last 100 edits. Right-click steps for step-only fills and deletes.</p>
+          <p>Space starts and stops transport. Number keys 1-8 trigger pads. A/W/S/E/D/F/T/G/Y/H/U/J/K previews the selected sound across pitch. Right-click pads or tracks for Mute, Sound Browser, Piano Roll, Browse Sound File, Mixer, Copy, Paste, Undo, and Redo. Undo/Redo keeps the last 100 edits.</p>
+        </section>
+        <section>
+          <h3>Piano Roll And Key Range</h3>
+          <div class="help-flow"><span>Right-click Sound</span><b></b><span>Piano Roll</span><b></b><span>-12/+12 ST</span></div>
+          <p>Right-click a sound name and choose OPEN PIANO ROLL, or right-click the sound name to open it immediately. Hover keys to preview. Click a key to set that sound's pitch from -12 to +12 semitones around C3. Semitones are musical half-steps; 12 semitones equals one octave.</p>
+        </section>
+        <section>
+          <h3>Advanced Pattern Commands</h3>
+          <div class="help-flow"><span>Right-click Step</span><b></b><span>Fill</span><b></b><span>Copy/Paste</span><b></b><span>Clear</span></div>
+          <p>Right-click any step to add every 2, 4, 6, or 8 steps, delete a step, copy a track, paste a track, or clear the selected track. Right-click the sequencer panel for current-pattern copy, paste, clear, slot save/load, and P1/P2 linking.</p>
+        </section>
+        <section>
+          <h3>128 Step View</h3>
+          <div class="help-flow"><span>128</span><b></b><span>Zoom</span><b></b><span>Scroll</span><b></b><span>Follow</span></div>
+          <p>Use 128 for long rolls and full phrases. The ZOOM slider changes step width, and the orange scrollbar moves across the hidden portion of the sequence. During playback the view follows the active step.</p>
         </section>
         <section>
           <h3>Sample Tune And Time Stretch</h3>
           <div class="help-flow"><span>Load Sample</span><b></b><span>Tune</span><b></b><span>Time Stretch</span></div>
-          <p>SAMPLE TUNE changes pitch. With TIME STRETCH on, the sampler preserves timing while changing pitch. With it off, playback behaves like classic hardware: pitch and speed move together.</p>
+          <p>KEY SHIFT changes sample pitch. With TIME STRETCH on, the sampler preserves timing while changing pitch. With it off, playback behaves like classic hardware: pitch and speed move together. CUT SELF stops previous chops and also cuts them at pattern wrap; turn it off when you want chops to bleed.</p>
         </section>
         <section>
           <h3>Mixer Inserts</h3>
@@ -322,6 +392,16 @@
           <h3>Sound Kits</h3>
           <div class="help-flow"><span>Hover</span><b></b><span>Audition</span><b></b><span>Click</span><b></b><span>Assign</span></div>
           <p>Use SOUND KITS to browse built-in drums. Hover a sound to audition it. Click a sound to assign it to the currently selected track without leaving the beat-making flow.</p>
+        </section>
+        <section>
+          <h3>Quick Commands</h3>
+          <div class="help-flow"><span>READY</span><b></b><span>Right-click</span><b></b><span>Collapse</span><b></b><span>LED</span></div>
+          <p>Right-click READY labels to collapse them into small status LEDs, then right-click again to restore the label. Use SAVE TEMPLATE to store the beat, pattern, mixer parameters, sample settings, and current machine state.</p>
+        </section>
+        <section>
+          <h3>Export</h3>
+          <div class="help-flow"><span>Master</span><b></b><span>WAV/MP3</span><b></b><span>Stems</span><b></b><span>FX Print</span></div>
+          <p>EXPORT bounces a master WAV or MP3. Turn on STEMS to create a ZIP with only tracks used in the beat. PRINT INSERT FX TO STEMS includes the active EQ, chorus, reverb, phaser, and limiter on the individual stems.</p>
         </section>
         <section>
           <h3>Troubleshooting</h3>
@@ -354,12 +434,23 @@
   <div id="unitMenu" class="step-menu unit-menu" hidden>
     <button data-unit-action="mute" type="button">MUTE / UNMUTE</button>
     <button data-unit-action="browser" type="button">OPEN SOUND BROWSER</button>
+    <button data-unit-action="piano-roll" type="button">OPEN PIANO ROLL</button>
     <button data-unit-action="browse-file" type="button">BROWSE SOUND FILE</button>
     <button data-unit-action="mixer" type="button">OPEN MIXER</button>
     <button data-unit-action="copy" type="button">COPY TRACK</button>
     <button data-unit-action="paste" type="button">PASTE TRACK</button>
     <button data-unit-action="undo" type="button">UNDO</button>
     <button data-unit-action="redo" type="button">REDO</button>
+  </div>
+
+  <div id="patternMenu" class="step-menu pattern-menu" hidden>
+    <button data-pattern-action="copy-current" type="button">COPY CURRENT PATTERN</button>
+    <button data-pattern-action="copy-slot" type="button">COPY SELECTED SLOT</button>
+    <button data-pattern-action="paste-slot" type="button">PASTE TO SELECTED SLOT</button>
+    <button data-pattern-action="clear-current" type="button">CLEAR CURRENT PATTERN</button>
+    <button data-pattern-action="save-slot" type="button">SAVE CURRENT TO SLOT</button>
+    <button data-pattern-action="load-slot" type="button">LOAD SELECTED SLOT</button>
+    <button data-pattern-action="link-1-2" type="button">LINK P1 + P2</button>
   </div>
 
   <div id="soundBrowser" class="sound-browser" hidden>
@@ -411,6 +502,6 @@
     <div id="soundList" class="sound-list" aria-label="sound browser list"></div>
   </div>
 
-  <script type="module" src="app.js?v=1028"></script>
+  <script type="module" src="app.js?v=1034"></script>
 </body>
 </html>
