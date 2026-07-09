@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GR4600 Drum Machine</title>
   <meta name="description" content="GR4600 is a browser drum machine and sampler by Glitchrealm.">
-  <link rel="stylesheet" href="style.css?v=1034">
+  <link rel="stylesheet" href="style.css?v=1036">
 </head>
 <body>
   <main class="machine" aria-label="GR4600 drum machine">
     <header class="topbar">
       <div class="brand">
         <div class="brand-title">GR4600</div>
-        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.3.4</span></div>
+        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.3.6</span></div>
       </div>
       <img class="brand-logo" src="assets/glitchrealm-logo.webp" alt="Glitchrealm logo">
       <div class="actions">
@@ -75,6 +75,8 @@
 
       <div class="transport">
         <button id="recordBtn" type="button" class="rec">REC</button>
+        <button id="undoBtn" type="button" class="mini-transport">UNDO</button>
+        <button id="redoBtn" type="button" class="mini-transport">REDO</button>
         <button id="stopBtn" type="button">■</button>
         <button id="playBtn" type="button">▶</button>
       </div>
@@ -386,7 +388,7 @@
         <section>
           <h3>Mixer Inserts</h3>
           <div class="help-flow"><span>Track</span><b></b><span>EQ</span><b></b><span>Chorus/Reverb</span><b></b><span>Limiter</span></div>
-          <p>Select MASTER or a track in MIXER / INSERT FX. Enable EQ, Chorus, Reverb, Phaser, or Limiter, then use LOW EQ, HIGH EQ, WET, and DRIVE to shape the sound.</p>
+          <p>Select MASTER or a track in MIXER / INSERT FX. Enable EQ, Chorus, Reverb, Phaser, or Limiter, then use LOW EQ, HIGH EQ, WET, and DRIVE to shape the sound. In the sound browser, the channel EQ has a parametric graph with colored bands: drag points to change frequency and gain, or use the detailed frequency/Q sliders below it.</p>
         </section>
         <section>
           <h3>Sound Kits</h3>
@@ -463,13 +465,26 @@
     </div>
     <canvas id="soundPianoRoll" width="520" height="86" aria-label="sound piano roll"></canvas>
     <div id="soundKeys" class="sound-keys" aria-label="pitch preview keyboard"></div>
-    <div id="soundEq" class="sound-eq" aria-label="hidden channel eq">
-      <label>HPF<input data-eq-param="hp" type="range" min="20" max="600" step="5" value="20"><span>20</span></label>
-      <label>LOW<input data-eq-param="low" type="range" min="-12" max="12" step="0.5" value="0"><span>0</span></label>
-      <label>LOW MID<input data-eq-param="lowMid" type="range" min="-12" max="12" step="0.5" value="0"><span>0</span></label>
-      <label>HIGH MID<input data-eq-param="highMid" type="range" min="-12" max="12" step="0.5" value="0"><span>0</span></label>
-      <label>HIGH<input data-eq-param="high" type="range" min="-12" max="12" step="0.5" value="0"><span>0</span></label>
-      <label>LPF<input data-eq-param="lp" type="range" min="1800" max="20000" step="100" value="20000"><span>20000</span></label>
+    <div id="soundEq" class="sound-eq parametric-eq" aria-label="hidden channel eq">
+      <div class="eq-graph-wrap">
+        <canvas id="soundEqCanvas" width="520" height="180" aria-label="parametric eq curve"></canvas>
+      </div>
+      <div class="eq-band-controls">
+        <label class="eq-band is-filter">HPF<input data-eq-param="hp" type="range" min="20" max="600" step="5" value="20"><span>20 HZ</span></label>
+        <label class="eq-band">LOW<input data-eq-param="low" type="range" min="-12" max="12" step="0.5" value="0"><span>0 DB</span></label>
+        <label class="eq-band">LOW MID<input data-eq-param="lowMid" type="range" min="-12" max="12" step="0.5" value="0"><span>0 DB</span></label>
+        <label class="eq-band">HIGH MID<input data-eq-param="highMid" type="range" min="-12" max="12" step="0.5" value="0"><span>0 DB</span></label>
+        <label class="eq-band">HIGH<input data-eq-param="high" type="range" min="-12" max="12" step="0.5" value="0"><span>0 DB</span></label>
+        <label class="eq-band is-filter">LPF<input data-eq-param="lp" type="range" min="1800" max="20000" step="100" value="20000"><span>20K</span></label>
+      </div>
+      <div class="eq-freq-controls" aria-label="eq frequency controls">
+        <label>LOW FREQ<input data-eq-param="lowFreq" type="range" min="50" max="260" step="5" value="120"><span>120 HZ</span></label>
+        <label>LM FREQ<input data-eq-param="lowMidFreq" type="range" min="180" max="1200" step="10" value="420"><span>420 HZ</span></label>
+        <label>LM Q<input data-eq-param="lowMidQ" type="range" min="0.4" max="5" step="0.05" value="1.05"><span>1.05 Q</span></label>
+        <label>HM FREQ<input data-eq-param="highMidFreq" type="range" min="900" max="5200" step="25" value="2200"><span>2.2K</span></label>
+        <label>HM Q<input data-eq-param="highMidQ" type="range" min="0.4" max="5" step="0.05" value="1.05"><span>1.05 Q</span></label>
+        <label>HIGH FREQ<input data-eq-param="highFreq" type="range" min="4200" max="14000" step="100" value="7600"><span>7.6K</span></label>
+      </div>
     </div>
     <div class="mini-fx-rack" aria-label="hidden performance mini plugins">
       <div class="mini-vst">
@@ -502,6 +517,6 @@
     <div id="soundList" class="sound-list" aria-label="sound browser list"></div>
   </div>
 
-  <script type="module" src="app.js?v=1034"></script>
+  <script type="module" src="app.js?v=1036"></script>
 </body>
 </html>

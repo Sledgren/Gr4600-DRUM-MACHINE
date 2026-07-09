@@ -56,7 +56,20 @@ const model = {
   channelFx: Object.fromEntries(TRACKS.map(t => [t.id, { eq: false, chorus: false, reverb: false, phaser: false, softClip: false }])),
   masterFx: { eq: false, chorus: false, reverb: false, phaser: false, softClip: false },
   fxParams: { eqLow: 2, eqHigh: -1.5, chorusWet: 0.18, reverbWet: 0.2, clipDrive: 2.4 },
-  channelEq: Object.fromEntries(TRACKS.map(t => [t.id, { hp: 20, low: 0, lowMid: 0, highMid: 0, high: 0, lp: 20000 }])),
+  channelEq: Object.fromEntries(TRACKS.map(t => [t.id, {
+    hp: 20,
+    low: 0,
+    lowFreq: 120,
+    lowMid: 0,
+    lowMidFreq: 420,
+    lowMidQ: 1.05,
+    highMid: 0,
+    highMidFreq: 2200,
+    highMidQ: 1.05,
+    high: 0,
+    highFreq: 7600,
+    lp: 20000,
+  }])),
 };
 
 let audioCtx = null;
@@ -102,6 +115,15 @@ const PAD_KEY_MAP = {
   Numpad5: "clap", Numpad6: "perc", Numpad7: "sample", Numpad8: "bass",
 };
 
+const EQ_BANDS = [
+  { key: "hp", label: "HPF", color: "#a56bff", freqKey: "hp", filter: true },
+  { key: "low", label: "LOW", color: "#ff4ca3", freqKey: "lowFreq" },
+  { key: "lowMid", label: "LOW MID", color: "#ff7b4a", freqKey: "lowMidFreq", qKey: "lowMidQ" },
+  { key: "highMid", label: "HIGH MID", color: "#f5df35", freqKey: "highMidFreq", qKey: "highMidQ" },
+  { key: "high", label: "HIGH", color: "#30e56b", freqKey: "highFreq" },
+  { key: "lp", label: "LPF", color: "#34c8ff", freqKey: "lp", filter: true },
+];
+
 const PIANO_KEYS = Array.from({ length: 25 }, (_, i) => {
   const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
   const semitones = i - 12;
@@ -140,6 +162,8 @@ const els = {
   playBtn: document.getElementById("playBtn"),
   stopBtn: document.getElementById("stopBtn"),
   recordBtn: document.getElementById("recordBtn"),
+  undoBtn: document.getElementById("undoBtn"),
+  redoBtn: document.getElementById("redoBtn"),
   newProjectBtn: document.getElementById("newProjectBtn"),
   saveBtn: document.getElementById("saveBtn"),
   loadBtn: document.getElementById("loadBtn"),
@@ -206,6 +230,7 @@ const els = {
   patternMenu: document.getElementById("patternMenu"),
   stepMenu: document.getElementById("stepMenu"),
   unitMenu: document.getElementById("unitMenu"),
+  soundEqCanvas: document.getElementById("soundEqCanvas"),
   fxPanel: document.querySelector(".fx-panel"),
   fxCollapseBtn: document.getElementById("fxCollapseBtn"),
   fxDepth: document.getElementById("fxDepth"),
@@ -812,9 +837,166 @@ function syncSoundEq(trackId = soundBrowserTrack) {
   const eq = model.channelEq[trackId];
   els.soundEq.querySelectorAll("[data-eq-param]").forEach(input => {
     const key = input.dataset.eqParam;
+    if (eq[key] === undefined) return;
     input.value = String(eq[key]);
     const readout = input.nextElementSibling;
-    if (readout) readout.textContent = key === "hp" || key === "lp" ? `${Math.round(eq[key])}` : `${eq[key] > 0 ? "+" : ""}${eq[key]}`;
+    if (readout) readout.textContent = eqLabel(key, eq[key]);
+  });
+  drawSoundEqGraph(trackId);
+}
+
+function eqLabel(key, value) {
+  if (key === "hp" || key === "lowFreq" || key === "lowMidFreq") return `${Math.round(value)} HZ`;
+  if (key === "highMidFreq" || key === "highFreq" || key === "lp") return value >= 1000 ? `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}K` : `${Math.round(value)} HZ`;
+  if (key.endsWith("Q")) return `${Number(value).toFixed(2)} Q`;
+  return `${value > 0 ? "+" : ""}${Number(value).toFixed(Number(value) % 1 ? 1 : 0)} DB`;
+}
+
+function eqX(freq, width) {
+  const min = Math.log10(20);
+  const max = Math.log10(20000);
+  return ((Math.log10(Math.max(20, Math.min(20000, freq))) - min) / (max - min)) * width;
+}
+
+function eqY(gain, height) {
+  return height * 0.5 - (Math.max(-18, Math.min(18, gain)) / 18) * height * 0.46;
+}
+
+function eqFreqFromX(x, width) {
+  const min = Math.log10(20);
+  const max = Math.log10(20000);
+  return Math.pow(10, min + Math.max(0, Math.min(1, x / width)) * (max - min));
+}
+
+function eqGainFromY(y, height) {
+  return Math.max(-12, Math.min(12, ((height * 0.5 - y) / (height * 0.46)) * 18));
+}
+
+function drawSoundEqGraph(trackId = soundBrowserTrack) {
+  const canvas = els.soundEqCanvas;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const eq = model.channelEq[trackId];
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#07161d";
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = "rgba(126,219,255,0.1)";
+  ctx.lineWidth = 1;
+  [40, 80, 160, 320, 640, 1250, 2500, 5000, 10000].forEach(freq => {
+    const x = eqX(freq, w);
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  });
+  for (let db = -12; db <= 12; db += 6) {
+    const y = eqY(db, h);
+    ctx.strokeStyle = db === 0 ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.08)";
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(216,247,255,0.72)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let x = 0; x <= w; x += 4) {
+    const freq = eqFreqFromX(x, w);
+    let gain = 0;
+    gain += eq.low * Math.exp(-Math.pow(Math.log(freq / (eq.lowFreq || 120)), 2) / 3.8);
+    gain += eq.lowMid * Math.exp(-Math.pow(Math.log(freq / (eq.lowMidFreq || 420)), 2) * (eq.lowMidQ || 1.05) / 1.6);
+    gain += eq.highMid * Math.exp(-Math.pow(Math.log(freq / (eq.highMidFreq || 2200)), 2) * (eq.highMidQ || 1.05) / 1.6);
+    gain += eq.high * Math.exp(-Math.pow(Math.log(freq / (eq.highFreq || 7600)), 2) / 3.8);
+    if (freq < eq.hp) gain -= Math.min(18, (eq.hp - freq) / Math.max(10, eq.hp) * 18);
+    if (freq > eq.lp) gain -= Math.min(18, (freq - eq.lp) / Math.max(100, eq.lp) * 18);
+    const y = eqY(gain, h);
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  EQ_BANDS.forEach((band, index) => {
+    const freq = eq[band.freqKey] || (band.key === "lp" ? 20000 : 20);
+    const gain = band.filter ? 0 : eq[band.key] || 0;
+    const x = eqX(freq, w);
+    const y = eqY(gain, h);
+    ctx.fillStyle = band.color;
+    ctx.strokeStyle = "rgba(0,0,0,0.72)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#061018";
+    ctx.font = "900 9px Helvetica, Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(index + 1), x, y);
+  });
+}
+
+function eqBandFromPoint(trackId, x, y) {
+  const canvas = els.soundEqCanvas;
+  const eq = model.channelEq[trackId];
+  if (!canvas || !eq) return null;
+  let best = null;
+  let bestDist = Infinity;
+  EQ_BANDS.forEach(band => {
+    const bx = eqX(eq[band.freqKey] || 20, canvas.width);
+    const by = eqY(band.filter ? 0 : eq[band.key] || 0, canvas.height);
+    const dist = Math.hypot(x - bx, y - by);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = band;
+    }
+  });
+  return bestDist <= 34 ? best : null;
+}
+
+function applyEqPoint(trackId, band, x, y) {
+  const canvas = els.soundEqCanvas;
+  if (!canvas || !band) return;
+  const eq = model.channelEq[trackId];
+  const freq = eqFreqFromX(x, canvas.width);
+  const gain = eqGainFromY(y, canvas.height);
+  if (band.freqKey === "hp") eq.hp = Math.max(20, Math.min(600, Math.round(freq / 5) * 5));
+  else if (band.freqKey === "lp") eq.lp = Math.max(1800, Math.min(20000, Math.round(freq / 100) * 100));
+  else {
+    eq[band.freqKey] = Math.round(freq);
+    eq[band.key] = Math.round(gain * 2) / 2;
+  }
+  syncSoundEq(trackId);
+  setInfo(`${trackId.toUpperCase()} EQ ${band.label}`);
+}
+
+function bindSoundEqCanvas() {
+  const canvas = els.soundEqCanvas;
+  if (!canvas) return;
+  let activeBand = null;
+  const point = event => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    };
+  };
+  canvas.addEventListener("pointerdown", event => {
+    const p = point(event);
+    activeBand = eqBandFromPoint(soundBrowserTrack, p.x, p.y);
+    if (!activeBand) return;
+    canvas.setPointerCapture?.(event.pointerId);
+    applyEqPoint(soundBrowserTrack, activeBand, p.x, p.y);
+  });
+  canvas.addEventListener("pointermove", event => {
+    if (!activeBand) return;
+    const p = point(event);
+    applyEqPoint(soundBrowserTrack, activeBand, p.x, p.y);
+  });
+  canvas.addEventListener("pointerup", event => {
+    if (activeBand) remember(`${soundBrowserTrack.toUpperCase()} EQ`);
+    activeBand = null;
+    canvas.releasePointerCapture?.(event.pointerId);
   });
 }
 
@@ -1025,13 +1207,18 @@ function connectChannelEq(ctx, node, trackId) {
     hp.Q.value = 0.7;
     filters.push(hp);
   }
-  [["lowshelf", 120, eq.low], ["peaking", 420, eq.lowMid], ["peaking", 2200, eq.highMid], ["highshelf", 7600, eq.high]].forEach(([type, freq, gain]) => {
+  [
+    ["lowshelf", eq.lowFreq || 120, eq.low, 0.7],
+    ["peaking", eq.lowMidFreq || 420, eq.lowMid, eq.lowMidQ || 1.05],
+    ["peaking", eq.highMidFreq || 2200, eq.highMid, eq.highMidQ || 1.05],
+    ["highshelf", eq.highFreq || 7600, eq.high, 0.7],
+  ].forEach(([type, freq, gain, q]) => {
     if (Math.abs(gain) < 0.01) return;
     const f = ctx.createBiquadFilter();
     f.type = type;
     f.frequency.value = freq;
     f.gain.value = gain;
-    if (type === "peaking") f.Q.value = 1.05;
+    if (type === "peaking") f.Q.value = q;
     filters.push(f);
   });
   if (eq.lp < 19800) {
@@ -2406,6 +2593,8 @@ function bindUi() {
   });
   els.playBtn.addEventListener("click", () => model.playing ? stop() : play());
   els.stopBtn.addEventListener("click", stop);
+  els.undoBtn?.addEventListener("click", undoLast);
+  els.redoBtn?.addEventListener("click", redoLast);
   els.recordBtn.addEventListener("click", () => {
     model.recording = !model.recording;
     setInfo(model.recording ? "PAD RECORD ARMED" : "PAD RECORD OFF");
@@ -2511,6 +2700,7 @@ function bindUi() {
     });
   });
   bindReadyCollapses();
+  bindSoundEqCanvas();
   els.soundBrowserClose?.addEventListener("click", () => {
     if (els.soundBrowser) els.soundBrowser.hidden = true;
   });
