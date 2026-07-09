@@ -492,8 +492,8 @@ function buildMixer() {
       soundFile.click();
     });
     soundFile.addEventListener("change", event => {
-      remember(`${track.label} SOUND`);
       loadTrackSound(track.id, event.target.files[0], soundBtn);
+      event.target.value = "";
     });
     wrap.addEventListener("contextmenu", event => {
       event.preventDefault();
@@ -509,7 +509,6 @@ function buildMixer() {
     soundBtn.addEventListener("drop", event => {
       event.preventDefault();
       soundBtn.classList.remove("drop-ready");
-      remember(`${track.label} SOUND`);
       loadTrackSound(track.id, event.dataTransfer.files[0], soundBtn);
     });
     els.tracks.appendChild(wrap);
@@ -542,9 +541,26 @@ function buildGrid() {
     const label = cell("", "grid-label track-row-label");
     label.dataset.track = track.id;
     label.style.setProperty("--track-color", track.color);
-    label.innerHTML = `<button class="row-select" type="button">${track.label}</button>`;
-    label.querySelector(".row-select").addEventListener("click", () => selectTrack(track.id));
-    label.querySelector(".row-select").addEventListener("contextmenu", event => {
+    const soundName = model.soundNames[track.id] || track.label;
+    label.innerHTML = `<button class="row-select" type="button" title="Double-click to replace ${soundName}">${soundName}</button>`;
+    const rowSelect = label.querySelector(".row-select");
+    rowSelect.addEventListener("click", () => {
+      selectTrack(track.id);
+      setInfo(`${soundName} SELECTED`);
+    });
+    rowSelect.addEventListener("dblclick", event => {
+      event.preventDefault();
+      selectTrack(track.id);
+      contextTarget = { type: "track", trackId: track.id, step: 0 };
+      const fileInput = document.querySelector(`.track[data-track="${track.id}"] .sound-file`);
+      if (fileInput) {
+        setInfo(`${track.label} REPLACE SOUND`);
+        fileInput.click();
+      } else {
+        openSoundBrowser(track.id);
+      }
+    });
+    rowSelect.addEventListener("contextmenu", event => {
       event.preventDefault();
       selectTrack(track.id);
       contextStep = { trackId: track.id, step: 0 };
@@ -682,9 +698,23 @@ function getKitBuffer(trackId) {
   return bank[0];
 }
 
+function updateTrackSoundLabels(trackId) {
+  const track = TRACKS.find(t => t.id === trackId);
+  const name = model.soundNames[trackId] || track?.label || trackId.toUpperCase();
+  document.querySelectorAll(`.track[data-track="${trackId}"] .track-name span`).forEach(label => {
+    label.textContent = name;
+  });
+  document.querySelectorAll(`.track-row-label[data-track="${trackId}"] .row-select`).forEach(label => {
+    label.textContent = name;
+    label.title = `Double-click to replace ${name}`;
+  });
+  if (trackId === soundBrowserTrack) renderSoundBrowser(trackId);
+}
+
 async function loadTrackSound(trackId, file, button) {
   if (!file) return;
   await unlockAudio();
+  remember(`${(TRACKS.find(t => t.id === trackId)?.label || trackId).toUpperCase()} SOUND`);
   const dataUrl = await readFileAsDataUrl(file);
   const res = await fetch(dataUrl);
   const arr = await res.arrayBuffer();
@@ -692,12 +722,8 @@ async function loadTrackSound(trackId, file, button) {
   kitBuffers[trackId] = [buffer];
   model.customSoundData[trackId] = dataUrl;
   model.soundNames[trackId] = file.name.replace(/\.[^.]+$/, "").slice(0, 18).toUpperCase();
-  if (button) {
-    button.textContent = button.textContent || "PAD";
-    const trackEl = button.closest(".track");
-    const label = trackEl?.querySelector(".track-name span");
-    if (label) label.textContent = model.soundNames[trackId];
-  }
+  if (button) button.textContent = button.textContent || "PAD";
+  updateTrackSoundLabels(trackId);
   setInfo(`${TRACKS.find(t => t.id === trackId)?.label || trackId} SOUND LOADED`);
 }
 
@@ -733,11 +759,8 @@ async function loadKitSound(trackId, url) {
   kitBuffers[trackId] = [buffer];
   model.customSoundData[trackId] = "";
   model.soundNames[trackId] = soundNameFromUrl(url).slice(0, 18);
-  const trackEl = document.querySelector(`.track[data-track="${trackId}"]`);
-  const label = trackEl?.querySelector(".track-name span");
-  if (label) label.textContent = model.soundNames[trackId];
+  updateTrackSoundLabels(trackId);
   selectTrack(trackId);
-  if (trackId === soundBrowserTrack) renderSoundBrowser(trackId);
   setInfo(`${TRACKS.find(t => t.id === trackId)?.label || trackId} KIT SOUND LOADED`);
 }
 
