@@ -1680,6 +1680,18 @@ button.on {
   scrollbar-width: thin;
 }
 
+.grid:not(.long-pattern) {
+  grid-template-columns: 82px repeat(var(--steps), minmax(0, 1fr));
+}
+
+.seq-zoom-control.disabled {
+  opacity: 0.45;
+}
+
+.seq-zoom-control.disabled input {
+  cursor: not-allowed;
+}
+
 .grid::-webkit-scrollbar {
   height: 8px;
 }

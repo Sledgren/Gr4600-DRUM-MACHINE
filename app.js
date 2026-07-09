@@ -594,9 +594,13 @@ function buildGrid() {
 }
 
 function updateSequencerViewport() {
-  const width = Number(els.seqZoom?.value || (model.length >= 128 ? 52 : model.length >= 64 ? 44 : 36));
+  const isLongPattern = model.length >= 128;
+  const width = Number(els.seqZoom?.value || 52);
   els.grid?.style.setProperty("--steps", String(model.length));
-  els.grid?.style.setProperty("--step-w", `${width}px`);
+  els.grid?.style.setProperty("--step-w", isLongPattern ? `${width}px` : "0px");
+  els.grid?.classList.toggle("long-pattern", isLongPattern);
+  els.seqZoom?.toggleAttribute("disabled", !isLongPattern);
+  els.seqZoom?.closest(".seq-zoom-control")?.classList.toggle("disabled", !isLongPattern);
 }
 
 function followPlayhead() {
@@ -1559,7 +1563,7 @@ function setSequenceLength(length) {
   model.length = length;
   model.step = 0;
   if (els.seqZoom) {
-    els.seqZoom.value = String(length >= 128 ? 52 : length >= 64 ? 44 : 36);
+    els.seqZoom.value = String(length >= 128 ? 52 : 36);
   }
   buildGrid();
   updateLengthButtons();
