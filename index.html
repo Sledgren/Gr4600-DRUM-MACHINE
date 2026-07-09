@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GR4600 Drum Machine</title>
   <meta name="description" content="GR4600 is a browser drum machine and sampler by Glitchrealm.">
-  <link rel="stylesheet" href="style.css?v=1036">
+  <link rel="stylesheet" href="style.css?v=1037">
 </head>
 <body>
   <main class="machine" aria-label="GR4600 drum machine">
     <header class="topbar">
       <div class="brand">
         <div class="brand-title">GR4600</div>
-        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.3.6</span></div>
+        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.3.7</span></div>
       </div>
       <img class="brand-logo" src="assets/glitchrealm-logo.webp" alt="Glitchrealm logo">
       <div class="actions">
@@ -373,7 +373,7 @@
         <section>
           <h3>Advanced Pattern Commands</h3>
           <div class="help-flow"><span>Right-click Step</span><b></b><span>Fill</span><b></b><span>Copy/Paste</span><b></b><span>Clear</span></div>
-          <p>Right-click any step to add every 2, 4, 6, or 8 steps, delete a step, copy a track, paste a track, or clear the selected track. Right-click the sequencer panel for current-pattern copy, paste, clear, slot save/load, and P1/P2 linking.</p>
+          <p>Right-click any step to add every 1, 2, 4, 6, or 8 steps, delete a step, copy a track, paste a track, or clear the selected track. Right-click the sequencer panel for current-pattern copy, paste, clear, slot save/load, and P1/P2 linking.</p>
         </section>
         <section>
           <h3>128 Step View</h3>
@@ -423,6 +423,7 @@
   </dialog>
 
   <div id="stepMenu" class="step-menu" hidden>
+    <button data-fill="1" type="button">ADD EVERY 1</button>
     <button data-fill="2" type="button">ADD EVERY 2</button>
     <button data-fill="4" type="button">ADD EVERY 4</button>
     <button data-fill="6" type="button">ADD EVERY 6</button>
@@ -517,6 +518,6 @@
     <div id="soundList" class="sound-list" aria-label="sound browser list"></div>
   </div>
 
-  <script type="module" src="app.js?v=1036"></script>
+  <script type="module" src="app.js?v=1037"></script>
 </body>
 </html>

@@ -531,6 +531,11 @@ function buildGrid() {
   for (let i = 0; i < model.length; i++) {
     const label = cell(String(i + 1), "grid-label step-label");
     label.dataset.group = String(Math.floor(i / 4) % 2);
+    label.addEventListener("contextmenu", event => {
+      event.preventDefault();
+      contextStep = { trackId: model.selectedTrack, step: i };
+      showStepMenu(event.clientX, event.clientY);
+    });
     els.grid.appendChild(label);
   }
   TRACKS.forEach(track => {
@@ -2680,7 +2685,7 @@ function bindUi() {
     showPatternMenu(event.clientX, event.clientY);
   });
   els.sequencerPanel?.addEventListener("contextmenu", event => {
-    if (event.target.closest(".step")) return;
+    if (event.target.closest(".step, .grid-label, .row-select")) return;
     event.preventDefault();
     showPatternMenu(event.clientX, event.clientY);
   });
@@ -2908,6 +2913,7 @@ function pasteSelectedTrack() {
 function showStepMenu(x, y) {
   if (!els.stepMenu) return;
   hideUnitMenu();
+  hidePatternMenu();
   els.stepMenu.hidden = false;
   els.stepMenu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
   els.stepMenu.style.top = `${Math.min(y, window.innerHeight - 180)}px`;
