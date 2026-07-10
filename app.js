@@ -24,18 +24,18 @@ const model = {
   step: 0,
   length: 16,
   pattern: Object.fromEntries(TRACKS.map(t => [t.id, new Array(MAX_STEPS).fill(false)])),
-  master: 0.82,
+  master: 0.84,
   volumes: Object.fromEntries(TRACKS.map(t => [t.id, ({
-    kick: 0.68,
-    snare: 0.72,
-    hat: 0.36,
-    open: 0.42,
-    clap: 0.58,
-    perc: 0.54,
-    sample: 0.64,
-    bass: 0.62,
+    kick: 0.74,
+    snare: 0.8,
+    hat: 0.46,
+    open: 0.5,
+    clap: 0.66,
+    perc: 0.62,
+    sample: 0.7,
+    bass: 0.74,
   }[t.id] ?? 0.58)])),
-  tunes: Object.fromEntries(TRACKS.map(t => [t.id, 0])),
+  tunes: Object.fromEntries(TRACKS.map(t => [t.id, t.id === "snare" ? -2 : 0])),
   decays: Object.fromEntries(TRACKS.map(t => [t.id, t.id === "hat" ? 0.22 : 0.7])),
   tones: Object.fromEntries(TRACKS.map(t => [t.id, 0.72])),
   sampleRun: true,
@@ -54,19 +54,19 @@ const model = {
   muted: Object.fromEntries(TRACKS.map(t => [t.id, false])),
   fx: { slice: false, stutter: false, repeat: false, glitch: false, depth: 0.55, sliceTiming: "1/4" },
   channelFx: Object.fromEntries(TRACKS.map(t => [t.id, { eq: false, chorus: false, reverb: false, phaser: false, softClip: false }])),
-  masterFx: { eq: false, chorus: false, reverb: false, phaser: false, softClip: false },
-  fxParams: { eqLow: 2, eqHigh: -1.5, chorusWet: 0.18, reverbWet: 0.2, clipDrive: 2.4 },
+  masterFx: { eq: true, chorus: false, reverb: false, phaser: false, softClip: true },
+  fxParams: { eqLow: 2.5, eqHigh: -0.75, chorusWet: 0.14, reverbWet: 0.16, clipDrive: 1.9 },
   channelEq: Object.fromEntries(TRACKS.map(t => [t.id, {
     hp: 20,
-    low: 0,
+    low: t.id === "bass" ? 2.5 : t.id === "kick" ? 1.5 : 0,
     lowFreq: 120,
-    lowMid: 0,
+    lowMid: t.id === "snare" ? 1.25 : 0,
     lowMidFreq: 420,
     lowMidQ: 1.05,
-    highMid: 0,
+    highMid: t.id === "snare" ? -0.75 : 0,
     highMidFreq: 2200,
     highMidQ: 1.05,
-    high: 0,
+    high: t.id === "bass" ? -1.5 : 0,
     highFreq: 7600,
     lp: 20000,
   }])),
@@ -167,6 +167,7 @@ const els = {
   newProjectBtn: document.getElementById("newProjectBtn"),
   saveBtn: document.getElementById("saveBtn"),
   loadBtn: document.getElementById("loadBtn"),
+  projectFileInput: document.getElementById("projectFileInput"),
   clearBtn: document.getElementById("clearBtn"),
   exportBtn: document.getElementById("exportBtn"),
   helpBtn: document.getElementById("helpBtn"),
@@ -714,6 +715,24 @@ function getKitBuffer(trackId) {
   return bank[0];
 }
 
+function normalizeDrumBuffer(ctx, buffer, trackId = "") {
+  let peak = 0;
+  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+    const data = buffer.getChannelData(channel);
+    for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
+  }
+  if (!peak || peak < 0.0001) return buffer;
+  const targetPeak = trackId === "snare" ? 0.94 : trackId === "bass" ? 0.9 : 0.88;
+  const gain = Math.min(4, targetPeak / peak);
+  const out = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+    const src = buffer.getChannelData(channel);
+    const dst = out.getChannelData(channel);
+    for (let i = 0; i < src.length; i++) dst[i] = Math.max(-0.98, Math.min(0.98, src[i] * gain));
+  }
+  return out;
+}
+
 function updateTrackSoundLabels(trackId) {
   const track = TRACKS.find(t => t.id === trackId);
   const name = model.soundNames[trackId] || track?.label || trackId.toUpperCase();
@@ -734,7 +753,7 @@ async function loadTrackSound(trackId, file, button) {
   const dataUrl = await readFileAsDataUrl(file);
   const res = await fetch(dataUrl);
   const arr = await res.arrayBuffer();
-  const buffer = await audioCtx.decodeAudioData(arr.slice(0));
+  const buffer = normalizeDrumBuffer(audioCtx, await audioCtx.decodeAudioData(arr.slice(0)), trackId);
   kitBuffers[trackId] = [buffer];
   model.customSoundData[trackId] = dataUrl;
   model.soundNames[trackId] = file.name.replace(/\.[^.]+$/, "").slice(0, 18).toUpperCase();
@@ -771,7 +790,7 @@ async function loadKitSound(trackId, url) {
   if (!url) return;
   const ctx = ensureAudio();
   const arr = await fetch(url).then(r => r.arrayBuffer());
-  const buffer = await ctx.decodeAudioData(arr.slice(0));
+  const buffer = normalizeDrumBuffer(ctx, await ctx.decodeAudioData(arr.slice(0)), trackId);
   kitBuffers[trackId] = [buffer];
   model.customSoundData[trackId] = "";
   model.soundNames[trackId] = soundNameFromUrl(url).slice(0, 18);
@@ -786,7 +805,7 @@ async function previewKitSound(url) {
   try { previewSource?.stop(); } catch {}
   try { previewSource?.disconnect(); } catch {}
   const arr = await fetch(url).then(r => r.arrayBuffer());
-  const buffer = await ctx.decodeAudioData(arr.slice(0));
+  const buffer = normalizeDrumBuffer(ctx, await ctx.decodeAudioData(arr.slice(0)), "");
   const src = ctx.createBufferSource();
   const g = ctx.createGain();
   g.gain.value = 0.42;
@@ -1731,18 +1750,59 @@ async function restore(data) {
   setInfo("PROJECT LOADED");
 }
 
+function projectBundle() {
+  return {
+    format: "GR4600_PROJECT",
+    version: "1.4.4",
+    savedAt: new Date().toISOString(),
+    undo: undoStack.slice(-100),
+    redo: redoStack.slice(-100),
+    data: snapshot()
+  };
+}
+
 function saveProject() {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(snapshot()));
-  setInfo("SAVED IN BROWSER");
+  const bundle = projectBundle();
+  const raw = JSON.stringify(bundle);
+  localStorage.setItem(SAVE_KEY, raw);
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  download(new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }), `GR4600_PROJECT_${stamp}.gr4600`);
+  setInfo("PROJECT FILE SAVED");
 }
 
 async function loadProject() {
-  const raw = localStorage.getItem(SAVE_KEY);
-  if (!raw) {
-    setInfo("NO SAVE FOUND");
+  els.projectFileInput?.click();
+}
+
+async function loadProjectFile(file) {
+  if (!file) {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) {
+      setInfo("NO PROJECT FILE");
+      return;
+    }
+    await restoreProjectBundle(JSON.parse(raw));
     return;
   }
-  await restore(JSON.parse(raw));
+  try {
+    const raw = await file.text();
+    const bundle = JSON.parse(raw);
+    await restoreProjectBundle(bundle);
+    localStorage.setItem(SAVE_KEY, JSON.stringify(bundle));
+  } catch (error) {
+    console.warn("Project load failed", error);
+    setInfo("PROJECT FILE ERROR");
+  }
+}
+
+async function restoreProjectBundle(bundle) {
+  const data = bundle?.format === "GR4600_PROJECT" ? bundle.data : bundle;
+  await restore(data);
+  undoStack.length = 0;
+  redoStack.length = 0;
+  (bundle?.undo || []).slice(-100).forEach(item => undoStack.push(item));
+  (bundle?.redo || []).slice(-100).forEach(item => redoStack.push(item));
+  setInfo(`PROJECT LOADED · UNDO ${undoStack.length}`);
 }
 
 function syncControls() {
@@ -2088,6 +2148,19 @@ function bindReadyCollapses() {
   });
 }
 
+function bindPanelContextMenus() {
+  document.querySelectorAll(".transport-panel, .hardware-controls, .mix-fx-panel, .fx-panel, .sampler-panel, .template-panel, .pads").forEach(panel => {
+    panel.addEventListener("contextmenu", event => {
+      if (event.target.closest("button, input, select, textarea, .step, .grid-label, .track, .pad-unit, .sound-browser, .sampler-head, .seq-head, .template-head, .fx-head")) return;
+      event.preventDefault();
+      const trackId = model.selectedTrack || model.selectedPad || "kick";
+      contextTarget = { type: "track", trackId, step: model.step || 0 };
+      showUnitMenu(event.clientX, event.clientY, "track");
+      setInfo(`${trackId.toUpperCase()} CONTEXT MENU`);
+    });
+  });
+}
+
 function applyPatternAction(action) {
   if (action === "copy-current") copyCurrentPattern();
   if (action === "copy-slot") copySelectedPatternSlot();
@@ -2107,7 +2180,7 @@ async function restoreCustomTrackSounds() {
     try {
       const res = await fetch(dataUrl);
       const arr = await res.arrayBuffer();
-      kitBuffers[track.id] = [await audioCtx.decodeAudioData(arr.slice(0))];
+      kitBuffers[track.id] = [normalizeDrumBuffer(audioCtx, await audioCtx.decodeAudioData(arr.slice(0)), track.id)];
     } catch (error) {
       console.warn("Could not restore custom sound", track.id, error);
     }
@@ -2224,14 +2297,14 @@ function drawWave() {
 async function loadFactoryKit() {
   try {
     const ctx = ensureAudio();
-    const manifest = await fetch("assets/kit-manifest.json?v=1026").then(r => r.json());
+    const manifest = await fetch("assets/kit-manifest.json?v=1044").then(r => r.json());
     kitManifest = manifest;
     const entries = Object.entries(manifest.tracks || {});
     for (const [trackId, urls] of entries) {
       kitBuffers[trackId] = [];
       for (const url of urls) {
         const arr = await fetch(url).then(r => r.arrayBuffer());
-        const buffer = await ctx.decodeAudioData(arr.slice(0));
+        const buffer = normalizeDrumBuffer(ctx, await ctx.decodeAudioData(arr.slice(0)), trackId);
         kitBuffers[trackId].push(buffer);
       }
     }
@@ -2647,6 +2720,10 @@ function bindUi() {
   els.newProjectBtn.addEventListener("click", () => clearProject(false));
   els.saveBtn.addEventListener("click", saveProject);
   els.loadBtn.addEventListener("click", loadProject);
+  els.projectFileInput?.addEventListener("change", event => {
+    loadProjectFile(event.target.files?.[0]);
+    event.target.value = "";
+  });
   els.clearBtn.addEventListener("click", () => clearProject(false));
   document.querySelectorAll(".length-btn").forEach(btn => {
     btn.addEventListener("click", () => setSequenceLength(Number(btn.dataset.length)));
@@ -3136,6 +3213,7 @@ function drawFxDisplay() {
 
 function init() {
   bindUi();
+  bindPanelContextMenus();
   buildMixer();
   buildGrid();
   syncControls();

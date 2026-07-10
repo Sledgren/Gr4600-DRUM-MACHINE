@@ -27,6 +27,7 @@
       "assets/drums/sledgrens-cowbell.wav"
     ],
     "bass": [
+      "assets/drums/bass-c-expo808.wav",
       "assets/drums/bass-01.wav",
       "assets/drums/bass-02.wav",
       "assets/drums/bass-03.wav"

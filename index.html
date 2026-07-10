@@ -5,20 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GR4600 Drum Machine</title>
   <meta name="description" content="GR4600 is a browser drum machine and sampler by Glitchrealm.">
-  <link rel="stylesheet" href="style.css?v=1042">
+  <link rel="stylesheet" href="style.css?v=1044">
 </head>
 <body>
   <main class="machine" aria-label="GR4600 drum machine">
     <header class="topbar">
       <div class="brand">
         <div class="brand-title">GR4600</div>
-        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.4.2</span></div>
+        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.4.4</span></div>
       </div>
       <img class="brand-logo" src="assets/glitchrealm-logo.webp" alt="Glitchrealm logo">
       <div class="actions">
         <button id="newProjectBtn" type="button">+ NEW</button>
         <button id="saveBtn" type="button">SAVE</button>
         <button id="loadBtn" type="button">LOAD</button>
+        <input id="projectFileInput" type="file" accept=".gr4600,application/json" hidden>
         <button id="exportBtn" type="button">EXPORT</button>
         <button id="helpBtn" type="button">HELP</button>
       </div>
@@ -61,8 +62,8 @@
         <div class="control-cluster master-box">
           <label for="master">MASTER</label>
           <div id="masterKnob" class="knob-mount"></div>
-          <input id="master" type="range" min="0" max="1" step="0.01" value="0.88">
-          <span id="masterReadout">88</span>
+          <input id="master" type="range" min="0" max="1" step="0.01" value="0.84">
+          <span id="masterReadout">84</span>
         </div>
 
         <div class="control-cluster pitch-box">
@@ -116,11 +117,11 @@
         </div>
       </div>
       <div class="mix-mini-controls" aria-label="mixer effect details">
-        <label>LOW EQ<input id="eqLow" type="range" min="-6" max="6" step="0.5" value="2"></label>
-        <label>HIGH EQ<input id="eqHigh" type="range" min="-8" max="4" step="0.5" value="-1.5"></label>
-        <label>CHORUS WET<input id="chorusWet" type="range" min="0" max="0.7" step="0.01" value="0.18"></label>
-        <label>REVERB WET<input id="reverbWet" type="range" min="0" max="0.8" step="0.01" value="0.2"></label>
-        <label>DRIVE<input id="clipDrive" type="range" min="1" max="5" step="0.1" value="2.4"></label>
+        <label>LOW EQ<input id="eqLow" type="range" min="-6" max="6" step="0.5" value="2.5"></label>
+        <label>HIGH EQ<input id="eqHigh" type="range" min="-8" max="4" step="0.5" value="-0.75"></label>
+        <label>CHORUS WET<input id="chorusWet" type="range" min="0" max="0.7" step="0.01" value="0.14"></label>
+        <label>REVERB WET<input id="reverbWet" type="range" min="0" max="0.8" step="0.01" value="0.16"></label>
+        <label>DRIVE<input id="clipDrive" type="range" min="1" max="5" step="0.1" value="1.9"></label>
       </div>
     </section>
 
@@ -402,7 +403,12 @@
         <section>
           <h3>Quick Commands</h3>
           <div class="help-flow"><span>READY</span><b></b><span>Right-click</span><b></b><span>Collapse</span><b></b><span>LED</span></div>
-          <p>Right-click READY labels to collapse them into small status LEDs, then right-click again to restore the label. Use SAVE TEMPLATE to store the beat, pattern, mixer parameters, sample settings, and current machine state.</p>
+          <p>Right-click READY labels to collapse them into small status LEDs, then right-click again to restore the label. Right-click empty hardware areas to open the menu for the selected track. Use SAVE TEMPLATE to store the beat, pattern, mixer parameters, sample settings, and current machine state.</p>
+        </section>
+        <section>
+          <h3>Project Files</h3>
+          <div class="help-flow"><span>SAVE</span><b></b><span>.GR4600</span><b></b><span>LOAD</span><b></b><span>UNDO 100</span></div>
+          <p>SAVE downloads a GR4600 project file containing the full machine state, custom sounds, sample data, patterns, mixer settings, and up to 100 undo/redo history steps. LOAD opens that file so you can come back later and keep working.</p>
         </section>
         <section>
           <h3>Export</h3>
@@ -439,17 +445,17 @@
   </div>
 
   <div id="unitMenu" class="step-menu unit-menu" hidden>
-    <button data-unit-action="mute" type="button">MUTE / UNMUTE</button>
-    <button data-unit-action="browser" type="button">OPEN SOUND BROWSER</button>
-    <button data-unit-action="piano-roll" type="button">OPEN PIANO ROLL</button>
-    <button data-unit-action="browse-file" type="button">BROWSE SOUND FILE</button>
-    <button data-unit-action="mixer" type="button">OPEN MIXER</button>
     <button data-unit-action="fill-1" type="button">ADD EVERY 1</button>
     <button data-unit-action="fill-2" type="button">ADD EVERY 2</button>
     <button data-unit-action="fill-4" type="button">ADD EVERY 4</button>
     <button data-unit-action="fill-6" type="button">ADD EVERY 6</button>
     <button data-unit-action="fill-8" type="button">ADD EVERY 8</button>
     <button data-unit-action="delete-step" type="button">DELETE STEP</button>
+    <button data-unit-action="mute" type="button">MUTE / UNMUTE</button>
+    <button data-unit-action="browser" type="button">OPEN SOUND BROWSER</button>
+    <button data-unit-action="piano-roll" type="button">OPEN PIANO ROLL</button>
+    <button data-unit-action="browse-file" type="button">BROWSE SOUND FILE</button>
+    <button data-unit-action="mixer" type="button">OPEN MIXER</button>
     <button data-unit-action="copy" type="button">COPY TRACK</button>
     <button data-unit-action="paste" type="button">PASTE TRACK</button>
     <button data-unit-action="clear" type="button">CLEAR TRACK</button>
@@ -529,6 +535,6 @@
     <div id="soundList" class="sound-list" aria-label="sound browser list"></div>
   </div>
 
-  <script type="module" src="app.js?v=1042"></script>
+  <script type="module" src="app.js?v=1044"></script>
 </body>
 </html>
