@@ -1,0 +1,7 @@
+GR4600 clean-room package
+
+This package contains the standalone GR4600 browser drum machine build only.
+It does not include legacy prototype source trees, legacy mascot artwork,
+legacy drum kit folders, or third-party source/assets.
+
+Use this folder as the upload source for GitHub Pages or other static hosting.
