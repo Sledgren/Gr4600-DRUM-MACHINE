@@ -24,19 +24,19 @@ const model = {
   step: 0,
   length: 16,
   pattern: Object.fromEntries(TRACKS.map(t => [t.id, new Array(MAX_STEPS).fill(false)])),
-  master: 0.84,
+  master: 0.8,
   volumes: Object.fromEntries(TRACKS.map(t => [t.id, ({
-    kick: 0.74,
-    snare: 0.8,
+    kick: 0.72,
+    snare: 0.72,
     hat: 0.46,
     open: 0.5,
-    clap: 0.66,
-    perc: 0.62,
-    sample: 0.7,
-    bass: 0.74,
+    clap: 0.62,
+    perc: 0.58,
+    sample: 0.68,
+    bass: 0.7,
   }[t.id] ?? 0.58)])),
-  tunes: Object.fromEntries(TRACKS.map(t => [t.id, t.id === "snare" ? -2 : 0])),
-  decays: Object.fromEntries(TRACKS.map(t => [t.id, t.id === "hat" ? 0.22 : 0.7])),
+  tunes: Object.fromEntries(TRACKS.map(t => [t.id, t.id === "snare" ? -1 : 0])),
+  decays: Object.fromEntries(TRACKS.map(t => [t.id, t.id === "hat" ? 0.22 : t.id === "snare" ? 0.42 : 0.7])),
   tones: Object.fromEntries(TRACKS.map(t => [t.id, 0.72])),
   sampleRun: true,
   sampleStretch: false,
@@ -54,16 +54,16 @@ const model = {
   muted: Object.fromEntries(TRACKS.map(t => [t.id, false])),
   fx: { slice: false, stutter: false, repeat: false, glitch: false, depth: 0.55, sliceTiming: "1/4" },
   channelFx: Object.fromEntries(TRACKS.map(t => [t.id, { eq: false, chorus: false, reverb: false, phaser: false, softClip: false }])),
-  masterFx: { eq: true, chorus: false, reverb: false, phaser: false, softClip: true },
-  fxParams: { eqLow: 2.5, eqHigh: -0.75, chorusWet: 0.14, reverbWet: 0.16, clipDrive: 1.9 },
+  masterFx: { eq: false, chorus: false, reverb: false, phaser: false, softClip: false },
+  fxParams: { eqLow: 1.5, eqHigh: -0.5, chorusWet: 0.1, reverbWet: 0.12, clipDrive: 1.45 },
   channelEq: Object.fromEntries(TRACKS.map(t => [t.id, {
     hp: 20,
     low: t.id === "bass" ? 2.5 : t.id === "kick" ? 1.5 : 0,
     lowFreq: 120,
-    lowMid: t.id === "snare" ? 1.25 : 0,
+    lowMid: t.id === "snare" ? 0.5 : 0,
     lowMidFreq: 420,
     lowMidQ: 1.05,
-    highMid: t.id === "snare" ? -0.75 : 0,
+    highMid: t.id === "snare" ? -1.25 : 0,
     highMidFreq: 2200,
     highMidQ: 1.05,
     high: t.id === "bass" ? -1.5 : 0,
@@ -657,7 +657,7 @@ function drawGrid() {
 
 function outputGain(ctx, when, level = 1, out = masterGain) {
   const g = ctx.createGain();
-  const shaped = Math.pow(Math.max(0, Math.min(1, level)), 1.65) * 1.22;
+  const shaped = Math.pow(Math.max(0, Math.min(1, level)), 1.45) * 1.04;
   g.gain.setValueAtTime(0.0001, when);
   g.gain.exponentialRampToValueAtTime(Math.max(0.0001, shaped), when + 0.006);
   g.connect(out);
@@ -722,8 +722,8 @@ function normalizeDrumBuffer(ctx, buffer, trackId = "") {
     for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
   }
   if (!peak || peak < 0.0001) return buffer;
-  const targetPeak = trackId === "snare" ? 0.94 : trackId === "bass" ? 0.9 : 0.88;
-  const gain = Math.min(4, targetPeak / peak);
+  const targetPeak = trackId === "snare" ? 0.82 : trackId === "bass" ? 0.86 : 0.84;
+  const gain = Math.min(2.6, targetPeak / peak);
   const out = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
   for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
     const src = buffer.getChannelData(channel);
@@ -1136,9 +1136,9 @@ function playKitBuffer(ctx, out, buffer, t, vol, activeTrack = "") {
   src.connect(filter);
   filter.connect(spOut.input);
   spOut.output.connect(mixIn);
-  const hardCap = activeTrack === "hat" ? 0.075 : activeTrack === "open" ? 0.55 : 3.5;
+  const hardCap = activeTrack === "hat" ? 0.075 : activeTrack === "open" ? 0.55 : activeTrack === "snare" ? 0.22 : 3.5;
   const stopAt = t + Math.min(buffer.duration * Math.max(0.18, decay), hardCap);
-  g.gain.setValueAtTime(vol, Math.max(t + 0.008, stopAt - 0.035));
+  g.gain.setValueAtTime(Math.max(0.0001, Math.pow(vol, 1.45)), Math.max(t + 0.008, stopAt - 0.035));
   g.gain.linearRampToValueAtTime(0, stopAt);
   src.start(t);
   src.stop(stopAt + 0.02);
@@ -1340,23 +1340,23 @@ function drumKick(ctx, out, t, vol) {
 function drumSnare(ctx, out, t, vol) {
   const src = ctx.createBufferSource();
   const filt = ctx.createBiquadFilter();
-  const g = outputGain(ctx, t, vol * 1.05, out);
-  src.buffer = noiseBuffer(ctx, 0.24);
+  const g = outputGain(ctx, t, vol * 0.96, out);
+  src.buffer = noiseBuffer(ctx, 0.16);
   filt.type = "bandpass";
-  filt.frequency.value = 1800;
-  filt.Q.value = 0.8;
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+  filt.frequency.value = 1450;
+  filt.Q.value = 1.05;
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.115);
   src.connect(filt).connect(g);
   src.start(t);
-  src.stop(t + 0.22);
+  src.stop(t + 0.14);
   const tone = ctx.createOscillator();
-  const tg = outputGain(ctx, t, vol * 0.26, out);
+  const tg = outputGain(ctx, t, vol * 0.18, out);
   tone.type = "triangle";
-  tone.frequency.value = 190;
-  tg.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+  tone.frequency.value = 172;
+  tg.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
   tone.connect(tg);
   tone.start(t);
-  tone.stop(t + 0.14);
+  tone.stop(t + 0.09);
 }
 
 function drumHat(ctx, out, t, vol, decay) {
@@ -1608,7 +1608,7 @@ function updateLengthButtons() {
 }
 
 function scheduler() {
-  const lookAhead = 0.12;
+  const lookAhead = 0.16;
   while (nextNoteTime < audioCtx.currentTime + lookAhead) {
     const scheduledStep = model.step;
     scheduleStep(scheduledStep, nextNoteTime + swingOffset(scheduledStep));
@@ -1630,7 +1630,7 @@ async function play() {
   model.step = 0;
   nextNoteTime = audioCtx.currentTime + 0.05;
   startSampleLoop(nextNoteTime);
-  timer = setInterval(scheduler, 25);
+  timer = setInterval(scheduler, 40);
   setInfo("PLAYING");
   refreshScreen();
 }
@@ -1753,7 +1753,7 @@ async function restore(data) {
 function projectBundle() {
   return {
     format: "GR4600_PROJECT",
-    version: "1.4.4",
+    version: "1.4.5",
     savedAt: new Date().toISOString(),
     undo: undoStack.slice(-100),
     redo: redoStack.slice(-100),
@@ -2297,7 +2297,7 @@ function drawWave() {
 async function loadFactoryKit() {
   try {
     const ctx = ensureAudio();
-    const manifest = await fetch("assets/kit-manifest.json?v=1044").then(r => r.json());
+    const manifest = await fetch("assets/kit-manifest.json?v=1045").then(r => r.json());
     kitManifest = manifest;
     const entries = Object.entries(manifest.tracks || {});
     for (const [trackId, urls] of entries) {

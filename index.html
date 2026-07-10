@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GR4600 Drum Machine</title>
   <meta name="description" content="GR4600 is a browser drum machine and sampler by Glitchrealm.">
-  <link rel="stylesheet" href="style.css?v=1044">
+  <link rel="stylesheet" href="style.css?v=1045">
 </head>
 <body>
   <main class="machine" aria-label="GR4600 drum machine">
     <header class="topbar">
       <div class="brand">
         <div class="brand-title">GR4600</div>
-        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.4.4</span></div>
+        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.4.5</span></div>
       </div>
       <img class="brand-logo" src="assets/glitchrealm-logo.webp" alt="Glitchrealm logo">
       <div class="actions">
@@ -62,8 +62,8 @@
         <div class="control-cluster master-box">
           <label for="master">MASTER</label>
           <div id="masterKnob" class="knob-mount"></div>
-          <input id="master" type="range" min="0" max="1" step="0.01" value="0.84">
-          <span id="masterReadout">84</span>
+          <input id="master" type="range" min="0" max="1" step="0.01" value="0.8">
+          <span id="masterReadout">80</span>
         </div>
 
         <div class="control-cluster pitch-box">
@@ -117,11 +117,11 @@
         </div>
       </div>
       <div class="mix-mini-controls" aria-label="mixer effect details">
-        <label>LOW EQ<input id="eqLow" type="range" min="-6" max="6" step="0.5" value="2.5"></label>
-        <label>HIGH EQ<input id="eqHigh" type="range" min="-8" max="4" step="0.5" value="-0.75"></label>
-        <label>CHORUS WET<input id="chorusWet" type="range" min="0" max="0.7" step="0.01" value="0.14"></label>
-        <label>REVERB WET<input id="reverbWet" type="range" min="0" max="0.8" step="0.01" value="0.16"></label>
-        <label>DRIVE<input id="clipDrive" type="range" min="1" max="5" step="0.1" value="1.9"></label>
+        <label>LOW EQ<input id="eqLow" type="range" min="-6" max="6" step="0.5" value="1.5"></label>
+        <label>HIGH EQ<input id="eqHigh" type="range" min="-8" max="4" step="0.5" value="-0.5"></label>
+        <label>CHORUS WET<input id="chorusWet" type="range" min="0" max="0.7" step="0.01" value="0.1"></label>
+        <label>REVERB WET<input id="reverbWet" type="range" min="0" max="0.8" step="0.01" value="0.12"></label>
+        <label>DRIVE<input id="clipDrive" type="range" min="1" max="5" step="0.1" value="1.45"></label>
       </div>
     </section>
 
@@ -535,6 +535,6 @@
     <div id="soundList" class="sound-list" aria-label="sound browser list"></div>
   </div>
 
-  <script type="module" src="app.js?v=1044"></script>
+  <script type="module" src="app.js?v=1045"></script>
 </body>
 </html>
