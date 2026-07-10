@@ -2994,6 +2994,15 @@ async function applyUnitAction(action) {
       syncMixFxButtons();
     }
     setInfo(`${trackId.toUpperCase()} MIXER READY`);
+  } else if (action.startsWith("fill-")) {
+    contextStep = { trackId, step: 0 };
+    applyStepFill(action.replace("fill-", ""));
+  } else if (action === "delete-step") {
+    contextStep = { trackId, step: contextTarget.step || model.step || 0 };
+    applyStepFill("delete-step");
+  } else if (action === "clear") {
+    contextStep = { trackId, step: 0 };
+    applyStepFill("clear");
   } else if (action === "copy") {
     model.selectedTrack = trackId;
     copySelectedTrack();

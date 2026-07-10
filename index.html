@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GR4600 Drum Machine</title>
   <meta name="description" content="GR4600 is a browser drum machine and sampler by Glitchrealm.">
-  <link rel="stylesheet" href="style.css?v=1041">
+  <link rel="stylesheet" href="style.css?v=1042">
 </head>
 <body>
   <main class="machine" aria-label="GR4600 drum machine">
     <header class="topbar">
       <div class="brand">
         <div class="brand-title">GR4600</div>
-        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.4.1</span></div>
+        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.4.2</span></div>
       </div>
       <img class="brand-logo" src="assets/glitchrealm-logo.webp" alt="Glitchrealm logo">
       <div class="actions">
@@ -362,7 +362,7 @@
         <section>
           <h3>Pattern Editing</h3>
           <div class="help-flow"><span>Right-click Step</span><b></b><span>Fill Every 2/4/6/8</span><b></b><span>Copy Track</span></div>
-          <p>Use 16, 32, 64, or 128 steps. Right-click an active step square to erase that hit. Right-click an empty step for fills and rolls, or right-click the sequencer panel for pattern copy, paste, clear, save, load, and P1/P2 linking.</p>
+          <p>Use 16, 32, 64, or 128 steps. Right-click an active step square to erase that hit. Right-click an empty step or the sound name on the left for fills and rolls, or right-click the sequencer panel for pattern copy, paste, clear, save, load, and P1/P2 linking.</p>
         </section>
         <section>
           <h3>Keyboard And Right Click</h3>
@@ -377,7 +377,7 @@
         <section>
           <h3>Advanced Pattern Commands</h3>
           <div class="help-flow"><span>Right-click Step</span><b></b><span>Fill</span><b></b><span>Copy/Paste</span><b></b><span>Clear</span></div>
-          <p>Right-click a sound name on the left to open Mute, Sound Browser, Piano Roll, Browse Sound File, Mixer, Copy, Paste, Undo, and Redo. Right-click an active step square to erase it. Right-click an empty step to add every 1, 2, 4, 6, or 8 steps, delete a step, copy a track, paste a track, or clear the selected track.</p>
+          <p>Right-click a sound name on the left to open Mute, Sound Browser, Piano Roll, Browse Sound File, Mixer, Add Every 1, 2, 4, 6, or 8, Copy, Paste, Clear, Undo, and Redo. Right-click an active step square to erase it. Right-click an empty step to use the same fill commands from that step position.</p>
         </section>
         <section>
           <h3>128 Step View</h3>
@@ -444,8 +444,15 @@
     <button data-unit-action="piano-roll" type="button">OPEN PIANO ROLL</button>
     <button data-unit-action="browse-file" type="button">BROWSE SOUND FILE</button>
     <button data-unit-action="mixer" type="button">OPEN MIXER</button>
+    <button data-unit-action="fill-1" type="button">ADD EVERY 1</button>
+    <button data-unit-action="fill-2" type="button">ADD EVERY 2</button>
+    <button data-unit-action="fill-4" type="button">ADD EVERY 4</button>
+    <button data-unit-action="fill-6" type="button">ADD EVERY 6</button>
+    <button data-unit-action="fill-8" type="button">ADD EVERY 8</button>
+    <button data-unit-action="delete-step" type="button">DELETE STEP</button>
     <button data-unit-action="copy" type="button">COPY TRACK</button>
     <button data-unit-action="paste" type="button">PASTE TRACK</button>
+    <button data-unit-action="clear" type="button">CLEAR TRACK</button>
     <button data-unit-action="undo" type="button">UNDO</button>
     <button data-unit-action="redo" type="button">REDO</button>
   </div>
@@ -522,6 +529,6 @@
     <div id="soundList" class="sound-list" aria-label="sound browser list"></div>
   </div>
 
-  <script type="module" src="app.js?v=1041"></script>
+  <script type="module" src="app.js?v=1042"></script>
 </body>
 </html>
