@@ -563,8 +563,8 @@ function buildGrid() {
     rowSelect.addEventListener("contextmenu", event => {
       event.preventDefault();
       selectTrack(track.id);
-      contextStep = { trackId: track.id, step: 0 };
-      showStepMenu(event.clientX, event.clientY);
+      contextTarget = { type: "track", trackId: track.id, step: 0 };
+      showUnitMenu(event.clientX, event.clientY, "track");
     });
     els.grid.appendChild(label);
     for (let i = 0; i < model.length; i++) {
@@ -584,13 +584,25 @@ function buildGrid() {
       btn.addEventListener("contextmenu", event => {
         event.preventDefault();
         selectTrack(track.id);
-        contextStep = { trackId: track.id, step: i };
-        showStepMenu(event.clientX, event.clientY);
+        if (model.pattern[track.id][i]) {
+          eraseSequencerStep(track.id, i);
+        } else {
+          contextStep = { trackId: track.id, step: i };
+          showStepMenu(event.clientX, event.clientY);
+        }
       });
       els.grid.appendChild(btn);
     }
   });
   drawGrid();
+}
+
+function eraseSequencerStep(trackId, step) {
+  if (!model.pattern[trackId]?.[step]) return;
+  remember(`${trackId.toUpperCase()} STEP ERASE`);
+  model.pattern[trackId][step] = false;
+  drawGrid();
+  setInfo(`${trackId.toUpperCase()} STEP ${step + 1} ERASED`);
 }
 
 function updateSequencerViewport() {
