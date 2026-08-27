@@ -25,16 +25,16 @@ const model = {
   step: 0,
   length: 16,
   pattern: Object.fromEntries(TRACKS.map(t => [t.id, new Array(MAX_STEPS).fill(false)])),
-  master: 0.92,
+  master: 0.8,
   volumes: Object.fromEntries(TRACKS.map(t => [t.id, ({
-    kick: 0.9,
-    snare: 0.9,
-    hat: 0.72,
-    open: 0.78,
-    clap: 0.86,
-    perc: 0.82,
-    sample: 0.9,
-    bass: 0.92,
+    kick: 0.72,
+    snare: 0.72,
+    hat: 0.46,
+    open: 0.5,
+    clap: 0.62,
+    perc: 0.58,
+    sample: 0.68,
+    bass: 0.7,
   }[t.id] ?? 0.58)])),
   pans: Object.fromEntries(TRACKS.map(t => [t.id, 0])),
   tunes: Object.fromEntries(TRACKS.map(t => [t.id, t.id === "snare" ? -1 : 0])),
@@ -700,11 +700,9 @@ function buildGrid() {
     const soundName = model.soundNames[track.id] || track.label;
     label.innerHTML = `<button class="row-select" type="button" title="Double-click to replace ${soundName}">${soundName}</button>`;
     const rowSelect = label.querySelector(".row-select");
-    rowSelect.addEventListener("click", async () => {
-      await unlockAudio();
+    rowSelect.addEventListener("click", () => {
       selectTrack(track.id);
-      auditionTrackPitch(track.id, 0);
-      setInfo(`${soundName} PREVIEW`);
+      setInfo(`${soundName} SELECTED`);
     });
     rowSelect.addEventListener("dblclick", event => {
       event.preventDefault();
@@ -814,7 +812,7 @@ function drawGrid() {
 
 function outputGain(ctx, when, level = 1, out = masterGain) {
   const g = ctx.createGain();
-  const shaped = Math.min(1.15, Math.pow(Math.max(0, Math.min(1.2, level)), 1.18) * 1.12);
+  const shaped = Math.pow(Math.max(0, Math.min(1, level)), 1.45) * 1.04;
   g.gain.setValueAtTime(0.0001, when);
   g.gain.exponentialRampToValueAtTime(Math.max(0.0001, shaped), when + 0.006);
   g.connect(out);
@@ -893,8 +891,8 @@ function normalizeDrumBuffer(ctx, buffer, trackId = "") {
     for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i]));
   }
   if (!peak || peak < 0.0001) return buffer;
-  const targetPeak = trackId === "bass" ? 0.92 : 0.9;
-  const gain = Math.min(3.2, targetPeak / peak);
+  const targetPeak = trackId === "snare" ? 0.82 : trackId === "bass" ? 0.86 : 0.84;
+  const gain = Math.min(2.6, targetPeak / peak);
   const out = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
   for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
     const src = buffer.getChannelData(channel);
@@ -987,7 +985,7 @@ async function previewKitSound(url) {
   const buffer = normalizeDrumBuffer(ctx, await ctx.decodeAudioData(arr.slice(0)), "");
   const src = ctx.createBufferSource();
   const g = ctx.createGain();
-  g.gain.value = 0.9;
+  g.gain.value = 0.42;
   src.buffer = buffer;
   src.connect(g).connect(masterGain || ctx.destination);
   src.start();
@@ -1287,14 +1285,14 @@ function auditionTrackPitch(trackId, semitones = 0) {
   try { previewSource?.disconnect(); } catch {}
   const buffer = getKitBuffer(trackId);
   if (buffer) {
-    previewSource = playKitBufferPitch(ctx, masterGain, buffer, ctx.currentTime, Math.max(0.92, model.volumes[trackId] || 0.92), trackId, semitones);
+    previewSource = playKitBufferPitch(ctx, masterGain, buffer, ctx.currentTime, trackId === "snare" ? 0.9 : 0.66, trackId, semitones);
   } else {
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     const destination = mixerFxChain(ctx, g, trackId);
     osc.type = trackId === "bass" ? "sine" : "square";
     osc.frequency.value = 130.81 * Math.pow(2, semitones / 12);
-    g.gain.value = 0.78;
+    g.gain.value = 0.4;
     osc.connect(destination);
     g.connect(masterGain || ctx.destination);
     osc.start();

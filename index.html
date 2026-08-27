@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GR4600</title>
-  <meta name="description" content="GR4600 is a browser music workstation and sampler by Glitchrealm.">
+  <title>GR4600 Drum Machine</title>
+  <meta name="description" content="GR4600 is a browser drum machine and sampler by Glitchrealm.">
   <link rel="icon" href="assets/glitchrealm-logo.webp" type="image/webp">
   <link rel="stylesheet" href="style.css?v=1052">
 </head>
 <body>
-  <main class="machine" aria-label="GR4600 music workstation">
+  <main class="machine" aria-label="GR4600 drum machine">
     <header class="topbar">
       <div class="brand">
         <div class="brand-title">GR4600</div>
-        <div class="brand-sub">MUSIC WORKSTATION <span class="version-badge">v1.5.3</span></div>
+        <div class="brand-sub">DRUM MACHINE <span class="version-badge">v1.5.2</span></div>
       </div>
       <img class="brand-logo" src="assets/glitchrealm-logo.webp" alt="Glitchrealm logo">
       <div class="actions">
@@ -67,8 +67,8 @@
         <div class="control-cluster master-box">
           <label for="master">MASTER</label>
           <div id="masterKnob" class="knob-mount"></div>
-          <input id="master" type="range" min="0" max="1" step="0.01" value="0.92">
-          <span id="masterReadout">92</span>
+          <input id="master" type="range" min="0" max="1" step="0.01" value="0.8">
+          <span id="masterReadout">80</span>
         </div>
 
         <div class="control-cluster pitch-box">
@@ -228,7 +228,7 @@
       <div class="sample-slice-controls">
         <label>START<input id="sampleStart" type="range" min="0" max="99" step="1" value="0"><span id="sampleStartReadout">0%</span></label>
         <label>END<input id="sampleEnd" type="range" min="1" max="100" step="1" value="100"><span id="sampleEndReadout">100%</span></label>
-        <label class="sample-level-control">LEVEL<input id="sampleLevel" type="range" min="0" max="1" step="0.01" value="0.92"><span id="sampleLevelReadout">92</span></label>
+        <label>LEVEL<input id="sampleLevel" type="range" min="0" max="1" step="0.01" value="0.82"><span id="sampleLevelReadout">82</span></label>
       </div>
     </section>
 
@@ -433,7 +433,7 @@
       </div>
       <details class="about-note">
         <summary>About</summary>
-        <p>GR4600 is a Glitchrealm music workstation focused on fast pad loading, step sequencing, sampler playback, and browser export.</p>
+        <p>GR4600 is a Glitchrealm drum machine focused on fast pad loading, step sequencing, sampler playback, and browser export.</p>
         <small>Created by Jermaine Woods of Glitchrealm.</small>
       </details>
       <div class="dialog-actions">
